@@ -1,9 +1,17 @@
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
 
-const db = new Database(process.env.DB_PATH || 'devstore.db');
+// Ruta absoluta y directorio garantizado (p. ej. /var/data con un disco en Render).
+// ':memory:' se mantiene tal cual para los tests.
+const DB_PATH = process.env.DB_PATH === ':memory:'
+  ? ':memory:'
+  : path.resolve(process.env.DB_PATH || 'devstore.db');
+if (DB_PATH !== ':memory:') fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+const db = new Database(DB_PATH);
 db.pragma('foreign_keys = ON');
 db.exec(`CREATE TABLE IF NOT EXISTS usuarios(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,6 +34,21 @@ app.use(session({
   cookie: { httpOnly: true, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 2 }
 }));
 
+// Diagnóstico de despliegue (sin datos sensibles): permite ver si la DB
+// existe, si se puede escribir y cuántos usuarios hay.
+app.get('/api/health', (req, res) => {
+  try {
+    const users = db.prepare('SELECT COUNT(*) AS n FROM usuarios').get().n;
+    let writable = true;
+    try { db.exec('CREATE TABLE IF NOT EXISTS __health_probe(x INTEGER); DROP TABLE __health_probe;'); }
+    catch { writable = false; }
+    res.json({ ok: true, db: DB_PATH, writable, users, node: process.version });
+  } catch (err) {
+    console.error('Health check falló:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 const ROLES = ['cliente', 'vendedor', 'instructor', 'administrador'];
 const PUBLICOS = ['cliente', 'vendedor', 'instructor'];
 const COLS = 'id,nombre,email,rol,creado';
@@ -47,7 +70,12 @@ app.post('/api/registro', (req, res) => {
       'INSERT INTO usuarios(nombre,email,password_hash,rol) VALUES(?,?,?,?)')
       .run(nombre.trim(), email.toLowerCase(), bcrypt.hashSync(password, 10), r);
     res.status(201).json({ id: lastInsertRowid });
-  } catch { res.status(409).json({ error: 'El email ya existe' }); }
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE')
+      return res.status(409).json({ error: 'El email ya existe' });
+    console.error('Error de base de datos al guardar usuario:', err);
+    res.status(500).json({ error: 'Error interno al guardar el usuario' });
+  }
 });
 
 // RF02 Login / Logout
@@ -77,7 +105,12 @@ app.put('/api/me', auth, (req, res) => {
     if (password) db.prepare('UPDATE usuarios SET password_hash=? WHERE id=?')
       .run(bcrypt.hashSync(password, 10), req.session.uid);
     res.json({ ok: true });
-  } catch { res.status(409).json({ error: 'El email ya existe' }); }
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE')
+      return res.status(409).json({ error: 'El email ya existe' });
+    console.error('Error de base de datos al guardar usuario:', err);
+    res.status(500).json({ error: 'Error interno al guardar el usuario' });
+  }
 });
 
 // RF15 CRUD completo de usuarios (solo administrador)
@@ -93,7 +126,12 @@ app.post('/api/usuarios', admin, (req, res) => {
       'INSERT INTO usuarios(nombre,email,password_hash,rol) VALUES(?,?,?,?)')
       .run(nombre.trim(), email.toLowerCase(), bcrypt.hashSync(password, 10), r);
     res.status(201).json({ id: lastInsertRowid });
-  } catch { res.status(409).json({ error: 'El email ya existe' }); }
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE')
+      return res.status(409).json({ error: 'El email ya existe' });
+    console.error('Error de base de datos al guardar usuario:', err);
+    res.status(500).json({ error: 'Error interno al guardar el usuario' });
+  }
 });
 app.put('/api/usuarios/:id', admin, (req, res) => {
   const { nombre, email, password, rol: r } = req.body;
@@ -105,7 +143,12 @@ app.put('/api/usuarios/:id', admin, (req, res) => {
     if (password) db.prepare('UPDATE usuarios SET password_hash=? WHERE id=?')
       .run(bcrypt.hashSync(password, 10), req.params.id);
     res.json({ ok: true });
-  } catch { res.status(409).json({ error: 'El email ya existe' }); }
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE')
+      return res.status(409).json({ error: 'El email ya existe' });
+    console.error('Error de base de datos al guardar usuario:', err);
+    res.status(500).json({ error: 'Error interno al guardar el usuario' });
+  }
 });
 app.delete('/api/usuarios/:id', admin, (req, res) => {
   if (+req.params.id === req.session.uid)
@@ -122,5 +165,5 @@ require('./almacen')(app, db, auth, rol);
 
 const PORT = process.env.PORT || 3000;
 if (require.main === module)
-  app.listen(PORT, () => console.log(`DevStore escuchando en el puerto ${PORT}`));
+  app.listen(PORT, () => console.log(`DevStore escuchando en el puerto ${PORT} · DB: ${DB_PATH}`));
 module.exports = app;

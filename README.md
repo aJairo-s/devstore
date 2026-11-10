@@ -68,13 +68,47 @@ git push -u origin main
 
 ### Desplegar en Render
 1. En [render.com](https://render.com) → **New** → **Blueprint** y conecta el repo de GitHub.
+   (También vale **New → Web Service** con Build `npm install` y Start `npm start`.)
 2. Render lee `render.yaml` y crea el servicio web automáticamente:
-   - Build: `npm install` · Start: `npm start` · Node 20.18.0
+   - Build: `npm install` · Start: `npm start` · Node 22.x
    - `SECRET` se genera automáticamente (sesiones).
 3. Tras el primer deploy, la URL pública queda en el dashboard del servicio.
 
+### Usuarios y datos en Render
+`devstore.db` está versionado en el repo como **snapshot inicial**: cada deploy o
+reinicio del servicio restaura ese archivo. Consecuencias en el plan **free**
+(disco efímero):
+
+- Los usuarios/productos/pedidos del snapshot están disponibles al arrancar.
+- Lo que se cree **en tiempo de ejecución** (registros, compras) se pierde en el
+  siguiente deploy/reinicio (incluido el spin-down por inactividad del plan free).
+- Para persistencia real: adjunta un disco (planes de pago) en `/var/data` y define
+  `DB_PATH=/var/data/devstore.db`, o usa una base de datos externa.
+
+Credenciales de demo incluidas en el snapshot:
+
+| Email | Contraseña | Rol |
+|---|---|---|
+| `admin@devstore.com` | `Admin123!` | administrador |
+| `lucia@devstore.com` | `Demo1234!` | vendedor |
+| `marcos@devstore.com` | `Demo1234!` | vendedor |
+| `ana@devstore.com` | `Demo1234!` | instructor |
+| `diego@devstore.com` | `Demo1234!` | instructor |
+| `carla@devstore.com` | `Demo1234!` | cliente |
+
+Para gestionar usuarios que deben viajar en el snapshot:
+```bash
+node scripts/manage-users.js list
+node scripts/manage-users.js create "Nombre" correo@ejemplo.com 'Password123' cliente
+node scripts/manage-users.js passwd correo@ejemplo.com 'NuevaPassword123'
+node scripts/manage-users.js delete correo@ejemplo.com
+# luego: git add devstore.db && git commit && git push  → Render redespliega
+```
+
+### Diagnóstico
+`GET /api/health` devuelve `{ ok, db, writable, users, node }` para comprobar en el
+servicio desplegado qué base de datos se está usando y si acepta escrituras.
+
 Notas:
 - El servidor usa `process.env.PORT` (Render lo asigna); en local usa `3000`.
-- En plan **free** el disco es efímero: `devstore.db` se recrea en cada redesplegar
-  (el admin se siembra automáticamente). Para persistencia, adjunta un disco en
-  `/var/data` y cambia `DB_PATH` a `/var/data/devstore.db` en `render.yaml`.
+- El servidor nunca escribe fuera de `DB_PATH` y crea su directorio si no existe.

@@ -183,6 +183,8 @@ async function moverEnvio(id,estado){await api('/api/admin/envios/'+id,'PUT',{es
 
 DS.mountHeader('home').then(()=>{init()});
 DS.reveal();
-if(location.hash==='#registro')tab('r');
+const abrirRegistro=()=>{tab('r');$('rn').focus()};
+addEventListener('hashchange',()=>{if(location.hash==='#registro')abrirRegistro()});
+if(location.hash==='#registro')abrirRegistro();
 ['le','lp'].forEach(i=>$(i).addEventListener('keydown',e=>{if(e.key==='Enter')login()}));
 </script></body></html>

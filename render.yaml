@@ -5,7 +5,7 @@ services:
     name: devstore
     runtime: node
     plan: free
-    nodeVersion: "20.18.0"
+    nodeVersion: "22.x"
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /
@@ -14,8 +14,13 @@ services:
       - key: SECRET
         generateValue: true
       # Ruta de la base de datos SQLite dentro del contenedor.
-      # NOTA: en plan free el disco es efímero; los datos se pierden al redesplegar.
-      # Para persistencia, agrega un disco montado en /var/data y cambia el valor a
-      # /var/data/devstore.db
+      # Plan free: disco efímero; devstore.db (versionado) se restaura en cada
+      # deploy/reinicio y los cambios en runtime se pierden.
+      # Para persistir, usa un plan de pago con disco montado en /var/data:
+      #   disk:
+      #     name: devstore-data
+      #     mountPath: /var/data
+      #     sizeGB: 1
+      # y cambia DB_PATH a /var/data/devstore.db
       - key: DB_PATH
         value: devstore.db
