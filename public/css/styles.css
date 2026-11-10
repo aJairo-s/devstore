@@ -1,0 +1,10 @@
+/* Punto único de entrada: centraliza las importaciones */
+@import url("variables.css");
+@import url("global.css");
+@import url("header.css");
+@import url("banners.css");
+@import url("products.css");
+@import url("animations.css");
+@import url("responsive.css");
+@import url("nav.css");
+@import url("market.css");

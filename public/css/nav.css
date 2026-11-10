@@ -1,0 +1,82 @@
+/* ===== Navegación: glassmorphism, indicadores, progreso de scroll y menú móvil =====
+   Se importa al final de styles.css para refinar header.css sin tocar su estructura. */
+
+.hdr{
+  background:color-mix(in srgb,var(--bg) 58%,transparent);
+  -webkit-backdrop-filter:blur(18px) saturate(165%);backdrop-filter:blur(18px) saturate(165%);
+  border-bottom:1px solid color-mix(in srgb,var(--border) 65%,transparent);
+  transition:background .3s var(--ease),box-shadow .3s var(--ease),border-color .3s var(--ease);
+}
+.hdr.scrolled{background:color-mix(in srgb,var(--bg) 80%,transparent);border-bottom-color:var(--border);box-shadow:0 8px 32px rgba(0,0,0,.28)}
+:root[data-theme="light"] .hdr{background:color-mix(in srgb,var(--bg-2) 88%,transparent)}
+:root[data-theme="light"] .hdr.scrolled{background:color-mix(in srgb,var(--bg-2) 94%,transparent);box-shadow:0 8px 28px rgba(24,24,31,.10)}
+/* Sin soporte de blur: vuelve a un fondo sólido legible */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.hdr{background:var(--hdr-bg)}}
+
+/* Barra de progreso de scroll */
+.scroll-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;pointer-events:none;overflow:hidden}
+.scroll-progress span{display:block;height:100%;width:100%;transform-origin:0 50%;transform:scaleX(var(--p,0));
+  background:linear-gradient(90deg,var(--accent-d),var(--accent-h),#2dd4bf);box-shadow:0 0 12px var(--accent-glow);will-change:transform}
+
+/* Logo */
+.logo::before{transition:transform .5s var(--ease),box-shadow .3s}
+.logo:hover::before{transform:rotate(-8deg) scale(1.08);box-shadow:0 0 18px var(--accent-glow)}
+
+/* Enlaces: píldora + indicador activo */
+.nav a{border-radius:999px;transition:color var(--fast),background var(--fast)}
+.nav a::after{left:50%;right:auto;bottom:.2rem;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;
+  background:var(--accent-h);box-shadow:0 0 10px var(--accent-h);transform:scale(0);transform-origin:center}
+.nav a:hover{background:var(--hover-soft)}
+.nav a.active{background:var(--accent-soft)}
+.nav a:hover::after{transform:scale(.6)}
+.nav a.active::after{transform:scale(1)}
+.nav a:focus-visible{outline-offset:0}
+
+.search input{background:color-mix(in srgb,var(--card) 70%,transparent);transition:border-color var(--fast),box-shadow var(--fast),background var(--fast),width var(--slow) var(--ease)}
+.search input:focus{background:var(--card)}
+
+/* Microinteracciones de iconos */
+.theme-btn,.cart-btn{background:color-mix(in srgb,var(--card) 45%,transparent);transition:transform var(--fast) var(--ease),background var(--fast),border-color var(--fast),box-shadow var(--fast)}
+.theme-btn:hover,.cart-btn:hover{border-color:var(--accent-border);box-shadow:0 0 0 4px var(--accent-soft)}
+.theme-btn:active{transform:rotate(25deg) scale(.92)}
+.avatar{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--accent-border);transition:transform var(--fast) var(--ease),box-shadow var(--fast)}
+.avatar:hover{transform:scale(1.08);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent-h)}
+
+/* Burger → X */
+.burger{place-items:center;padding:0;background:color-mix(in srgb,var(--card) 45%,transparent);transition:border-color var(--fast),background var(--fast)}
+.burger .bars{position:relative;display:block;width:18px;height:14px}
+.burger .bars i{position:absolute;left:0;width:100%;height:2px;border-radius:2px;background:currentColor;transition:transform .35s var(--ease),opacity .2s,top .35s var(--ease)}
+.burger .bars i:nth-child(1){top:0}.burger .bars i:nth-child(2){top:6px}.burger .bars i:nth-child(3){top:12px}
+.burger[aria-expanded="true"]{border-color:var(--accent-border);background:var(--accent-soft)}
+.burger[aria-expanded="true"] .bars i:nth-child(1){top:6px;transform:rotate(45deg)}
+.burger[aria-expanded="true"] .bars i:nth-child(2){opacity:0;transform:scaleX(0)}
+.burger[aria-expanded="true"] .bars i:nth-child(3){top:6px;transform:rotate(-45deg)}
+
+/* Menú móvil: panel de vidrio con aparición escalonada */
+@media (max-width:860px){
+  .burger{display:grid;margin-left:auto}
+  .nav{
+    gap:.15rem;margin:0 .6rem;border:1px solid color-mix(in srgb,var(--border) 80%,transparent);border-top:0;border-radius:0 0 20px 20px;
+    background:color-mix(in srgb,var(--bg-2) 95%,transparent);-webkit-backdrop-filter:blur(22px) saturate(165%);backdrop-filter:blur(22px) saturate(165%);
+    box-shadow:0 24px 50px rgba(0,0,0,.35);visibility:hidden;transform:translateY(-8px);
+    transition:max-height var(--slow) var(--ease),opacity .3s,padding var(--slow),transform var(--slow) var(--ease),visibility 0s linear var(--slow);
+  }
+  .nav.open{visibility:visible;transform:none;transition-delay:0s}
+  .nav a{padding:.8rem 1rem;font-size:1rem;border-radius:12px;opacity:0;transform:translateX(-10px);transition:opacity .3s,transform .4s var(--ease),background var(--fast),color var(--fast)}
+  .nav.open a{opacity:1;transform:none;transition-delay:calc(var(--k,0) * 45ms + 80ms)}
+  .nav a::after{left:auto;right:1rem;top:50%;bottom:auto;margin-top:-2.5px}
+  .nav a.active{background:var(--accent-soft)}
+  .nav .search-m{opacity:0;transition:opacity .3s}.nav.open .search-m{opacity:1;transition-delay:.3s}
+}
+
+/* Header compacto en móvil: evita que la hamburguesa quede fuera de pantalla */
+@media (max-width:560px){
+  .hdr-in{gap:.5rem}
+  .hdr-right{gap:.4rem;margin-left:auto;min-width:0}
+  .burger{margin-left:0}
+  .logo{font-size:1.15rem}.logo::before{margin-right:.35rem;font-size:.7rem}
+  .theme-btn,.cart-btn,.burger{width:38px;height:38px}
+  .hdr-right .btn-primary{padding:.4rem .65rem;font-size:.76rem;white-space:nowrap}
+  .avatar{width:32px;height:32px}
+}
+@media (max-width:370px){.hdr-right .btn-primary{display:none}}

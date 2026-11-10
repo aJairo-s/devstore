@@ -1,0 +1,144 @@
+/* ===== DevStore · Hero del inicio (fase 1) =====
+   El hero es una "escena" oscura en ambos temas; el resto de la página sigue el tema activo. */
+
+.home-hero{display:block;padding:0;position:relative}
+
+/* Escena a sangre completa, por debajo del header translúcido */
+.hero-x{
+  --text:#fff; --muted:#a1a1aa; --border:#30303A; --card:#202028; --hero-fg:#d4d4d8; --accent-text:#34d399;
+  position:relative;isolation:isolate;overflow:hidden;color:var(--text);
+  width:100vw;margin-left:calc(50% - 50vw);margin-top:calc(var(--hdr-h) * -1);
+  padding:calc(var(--hdr-h) + 3.2rem) 0 6.8rem;
+  background:
+    radial-gradient(60% 70% at 78% 42%,rgba(16,185,129,.22),transparent 65%),
+    radial-gradient(40% 50% at 8% 90%,rgba(45,212,191,.10),transparent 70%),
+    linear-gradient(180deg,#0b0d10 0%,#101014 55%,#0d1613 100%);
+}
+/* Fundido hacia el fondo del tema activo */
+.hero-x::after{content:"";position:absolute;inset:auto 0 0 0;height:84px;z-index:-1;background:linear-gradient(180deg,transparent,var(--bg));pointer-events:none}
+
+/* Capas de fondo */
+.hero-bg{position:absolute;inset:0;z-index:-2;pointer-events:none;overflow:hidden}
+.hero-grid-floor{position:absolute;left:-20%;right:-20%;bottom:-8%;height:62%;
+  background-image:linear-gradient(rgba(16,185,129,.28) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.28) 1px,transparent 1px);
+  background-size:56px 56px;transform:perspective(520px) rotateX(62deg);transform-origin:50% 100%;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 55%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0%,#000 55%,transparent 100%);
+  opacity:.55;animation:gridMove 9s linear infinite}
+@keyframes gridMove{to{background-position:0 56px,56px 0}}
+.hero-dots{position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.09) 1px,transparent 1.2px);background-size:26px 26px;
+  -webkit-mask-image:radial-gradient(70% 70% at 70% 40%,#000,transparent);mask-image:radial-gradient(70% 70% at 70% 40%,#000,transparent)}
+.hero-orb{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5}
+.hero-orb.a{width:360px;height:360px;right:6%;top:6%;background:rgba(16,185,129,.35);animation:orb 14s ease-in-out infinite alternate}
+.hero-orb.b{width:260px;height:260px;left:-60px;top:40%;background:rgba(45,212,191,.22);animation:orb 18s ease-in-out infinite alternate-reverse}
+@keyframes orb{to{transform:translate3d(-30px,24px,0) scale(1.12)}}
+/* Foco que sigue al cursor (--mx/--my los fija hero3d.js) */
+.hero-spot{position:absolute;inset:0;background:radial-gradient(420px circle at var(--mx,70%) var(--my,35%),rgba(52,211,153,.13),transparent 60%);transition:opacity .3s}
+.hero-scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 4px);mix-blend-mode:overlay}
+
+.hero-layout{position:relative;display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);gap:1rem;align-items:center;min-height:clamp(480px,62vh,640px)}
+
+/* ----- Texto ----- */
+.hero-copy{position:relative;z-index:2;max-width:600px}
+.hero-copy>*{animation:rise .8s var(--ease) both;animation-delay:calc(var(--d,0) * 90ms + 60ms)}
+.hero-badge{display:inline-flex;align-items:center;gap:.55rem;padding:.35rem .85rem .35rem .45rem;border:1px solid rgba(52,211,153,.35);border-radius:999px;
+  background:rgba(16,185,129,.1);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-size:.74rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6ee7b7;margin-bottom:1.1rem}
+.hero-badge i{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 0 0 rgba(52,211,153,.7);animation:ping 2s ease-out infinite;margin-left:.3rem}
+@keyframes ping{70%,100%{box-shadow:0 0 0 9px rgba(52,211,153,0)}}
+.hero-copy h1{font-size:clamp(2.3rem,5.4vw,4rem);font-weight:800;line-height:1.06;letter-spacing:-.035em;margin:0 0 1.1rem;text-wrap:balance}
+.hero-copy h1 em{font-style:normal;position:relative;display:inline-block;background:linear-gradient(100deg,#34d399 0%,#2dd4bf 45%,#a7f3d0 100%);background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:sheen 6s ease-in-out infinite alternate}
+@keyframes sheen{to{background-position:100% 0}}
+.hero-code{font:600 .95rem/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#6ee7b7;margin:0 0 1rem;opacity:.9}
+.hero-code b{color:#a1a1aa;font-weight:500}
+.hero-copy .lead{font-size:clamp(1rem,1.5vw,1.14rem);color:var(--hero-fg);max-width:52ch;margin:0 0 1.6rem}
+.hero-cta{display:flex;flex-wrap:wrap;gap:.8rem;align-items:center;margin-bottom:1.5rem}
+
+/* Botones del hero */
+.hero-x .btn-primary{position:relative;overflow:hidden;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-color:rgba(167,243,208,.35);
+  box-shadow:0 8px 30px rgba(16,185,129,.38),inset 0 1px 0 rgba(255,255,255,.25)}
+.hero-x .btn-primary::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s var(--ease)}
+.hero-x .btn-primary:hover{background:linear-gradient(135deg,#34d399,#10b981);box-shadow:0 12px 40px rgba(16,185,129,.55),inset 0 1px 0 rgba(255,255,255,.3)}
+.hero-x .btn-primary:hover::before{transform:translateX(120%)}
+.hero-x .btn-primary .arr{display:inline-block;transition:transform var(--fast) var(--ease)}
+.hero-x .btn-primary:hover .arr{transform:translateX(4px)}
+.hero-x .btn-glass{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16);color:#fff;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.hero-x .btn-glass:hover{background:rgba(255,255,255,.12);border-color:rgba(52,211,153,.55);box-shadow:0 8px 26px rgba(16,185,129,.2)}
+
+.hero-x .pills{margin:0}
+.hero-x .pill{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);color:#d4d4d8;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  transition:transform var(--fast) var(--ease),border-color var(--fast),background var(--fast),color var(--fast)}
+.hero-x .pill:hover{transform:translateY(-2px);border-color:rgba(52,211,153,.55);background:rgba(16,185,129,.12);color:#fff}
+
+/* ----- Escena 3D ----- */
+.hero-stage{position:relative;height:clamp(340px,48vw,600px);min-width:0;margin-right:-2rem}
+.hero-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity 1.1s var(--ease);touch-action:pan-y}
+/* Borde difuminado: el modelo se integra con el fondo sin cortes rectos */
+.hero-stage canvas{-webkit-mask-image:radial-gradient(ellipse 72% 72% at 50% 50%,#000 55%,transparent 100%);mask-image:radial-gradient(ellipse 72% 72% at 50% 50%,#000 55%,transparent 100%)}
+.hero-stage.is-ready canvas{opacity:1}
+.hero-stage.no-webgl canvas{display:none}
+
+/* Fallback sin WebGL: ilustración estática */
+.stage-fallback{position:absolute;inset:0;display:none;place-items:center}
+.no-webgl .stage-fallback{display:grid}
+.stage-fallback svg{width:min(78%,420px);height:auto;filter:drop-shadow(0 0 40px rgba(16,185,129,.4))}
+
+/* Etiquetas de vidrio flotantes (decorativas) */
+.float-tag{position:absolute;z-index:2;display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem;border-radius:12px;font-size:.76rem;font-weight:600;color:#e4e4e7;
+  background:rgba(24,24,31,.55);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(12px) saturate(140%);-webkit-backdrop-filter:blur(12px) saturate(140%);
+  box-shadow:0 10px 30px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);animation:floaty 6s ease-in-out infinite;pointer-events:none}
+.float-tag i{font-style:normal;display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:rgba(16,185,129,.18);color:#6ee7b7;font:700 .72rem ui-monospace,Menlo,monospace}
+.float-tag small{display:block;font-weight:500;color:#a1a1aa;font-size:.68rem;line-height:1.1}
+.float-tag.t1{left:2%;top:16%}
+.float-tag.t2{right:6%;top:9%;animation-delay:-2s}
+.float-tag.t3{right:2%;bottom:17%;animation-delay:-4s}
+@keyframes floaty{50%{transform:translateY(-10px)}}
+
+/* Indicador de scroll */
+.scroll-cue{position:absolute;left:50%;bottom:3.2rem;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.4rem;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:#a1a1aa;z-index:2}
+.scroll-cue span{width:22px;height:36px;border:1.5px solid rgba(255,255,255,.28);border-radius:12px;position:relative}
+.scroll-cue span::after{content:"";position:absolute;left:50%;top:7px;width:3px;height:7px;margin-left:-1.5px;border-radius:2px;background:#34d399;animation:wheel 1.8s ease-in-out infinite}
+@keyframes wheel{0%{opacity:0;transform:translateY(0)}30%{opacity:1}100%{opacity:0;transform:translateY(12px)}}
+
+/* ----- Acceso (tarjeta de login/registro) ----- */
+.access{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px);gap:3rem;align-items:center;padding:1.5rem 0 3.5rem}
+.access-copy h2{font-size:clamp(1.6rem,3vw,2.2rem);letter-spacing:-.025em;margin-bottom:.7rem}
+.access-copy p{max-width:48ch;margin:0 0 1.2rem}
+.feat{display:grid;gap:.7rem;max-width:520px;padding:0;margin:0;list-style:none}
+.feat li{display:flex;gap:.8rem;align-items:flex-start;padding:.8rem 1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;
+  transition:transform var(--fast) var(--ease),border-color var(--fast),box-shadow var(--fast)}
+.feat li:hover{transform:translateX(4px);border-color:var(--accent-border);box-shadow:0 8px 24px var(--accent-soft)}
+.feat i{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);font-style:normal;font-size:1.05rem}
+.feat b{display:block;font-size:.92rem}.feat small{color:var(--muted)}
+.access .auth-card{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--bg-2),var(--bg-2));border-color:var(--border);
+  box-shadow:var(--shadow),0 0 0 1px rgba(16,185,129,.06)}
+.access .auth-card::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:linear-gradient(90deg,transparent,var(--accent-h),transparent)}
+.access .auth-card::after{content:"";position:absolute;width:240px;height:240px;right:-90px;top:-120px;border-radius:50%;background:radial-gradient(closest-side,var(--accent-glow),transparent);opacity:.5;pointer-events:none}
+.access .auth-card>*{position:relative;z-index:1}
+.access .tab{transition:background var(--fast),color var(--fast),transform var(--fast)}
+.access .tab:active{transform:scale(.97)}
+
+/* Aparición por scroll: variantes con retardo escalonado */
+.access .reveal{transition-delay:calc(var(--i,0) * 90ms)}
+
+/* ----- Responsive ----- */
+@media (max-width:1000px){
+  .hero-x{padding-bottom:4.5rem}
+  .hero-layout{grid-template-columns:1fr;gap:0;min-height:0}
+  .hero-copy{max-width:680px}
+  .hero-stage{margin-right:0;height:clamp(300px,78vw,460px);margin-top:.5rem}
+  .access{grid-template-columns:1fr;gap:1.6rem}
+  .scroll-cue{display:none}
+}
+@media (max-width:560px){
+  .hero-x{padding-top:calc(var(--hdr-h) + 1.6rem)}
+  .hero-cta .btn{flex:1 1 100%}
+  .float-tag{font-size:.68rem;padding:.4rem .6rem}
+  .float-tag.t1{left:0;top:6%}.float-tag.t2{right:0;top:2%}.float-tag.t3{right:0;bottom:8%}
+}
+
+/* Movimiento reducido: sin bucles decorativos (la regla global ya acorta duraciones) */
+@media (prefers-reduced-motion:reduce){
+  .hero-grid-floor,.hero-orb,.float-tag,.hero-badge i,.hero-copy h1 em,.scroll-cue span::after{animation:none!important}
+  .hero-copy>*{animation:none}
+  .hero-spot{display:none}
+}

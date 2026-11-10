@@ -1,0 +1,21 @@
+# Blueprint de Render: https://render.com/docs/blueprint-spec
+# Al conectar el repo a GitHub, Render usa este archivo para crear el servicio.
+services:
+  - type: web
+    name: devstore
+    runtime: node
+    plan: free
+    nodeVersion: "20.18.0"
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      # Secreto de sesión: Render lo genera y guarda en Variables de Entorno.
+      - key: SECRET
+        generateValue: true
+      # Ruta de la base de datos SQLite dentro del contenedor.
+      # NOTA: en plan free el disco es efímero; los datos se pierden al redesplegar.
+      # Para persistencia, agrega un disco montado en /var/data y cambia el valor a
+      # /var/data/devstore.db
+      - key: DB_PATH
+        value: devstore.db

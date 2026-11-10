@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DevStore – Tu tienda para programar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="stylesheet" href="/css/hero.css">
+<script type="importmap">{"imports":{"three":"/vendor/three/three.module.min.js"}}</script>
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head><body>
+<div id="hdr"></div>
+<main class="container">
+ <div id="msg" class="alert hide" role="alert"></div>
+
+ <!-- Visitante -->
+ <section id="auth" class="home-hero">
+  <div class="hero-x" id="heroX">
+   <div class="hero-bg" aria-hidden="true"><div class="hero-grid-floor"></div><div class="hero-dots"></div><span class="hero-orb a"></span><span class="hero-orb b"></span><div class="hero-spot"></div><div class="hero-scan"></div></div>
+   <div class="container hero-layout">
+    <div class="hero-copy">
+     <span class="hero-badge" style="--d:0"><i></i><span class="kicker" style="margin:0;color:inherit">Marketplace para programadores</span></span>
+     <p class="hero-code" style="--d:1" aria-hidden="true"><b>const</b> store = <b>await</b> build(<b>"lo que imaginas"</b>);</p>
+     <h1 style="--d:1">Hardware, software y cursos para <em>construir lo que imaginas</em></h1>
+     <p class="lead" style="--d:2">Teclados, Raspberry Pi, licencias, herramientas de IA y cursos de Python, Rust, React y más. Compra, vende o enseña en un solo lugar.</p>
+     <div class="hero-cta" style="--d:3">
+      <a class="btn btn-primary btn-lg" href="/productos.html">Explorar catálogo <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn btn-glass btn-lg" href="/productos.html?tipo=curso">Ver cursos</a>
+     </div>
+     <div class="pills" style="--d:4"><span class="pill">⌨️ Hardware</span><span class="pill">💿 Software</span><span class="pill">🎓 Cursos</span></div>
+    </div>
+    <div class="hero-stage" id="heroStage" role="img" aria-label="Ilustración 3D de un procesador futurista con anillos holográficos">
+     <canvas id="hero3d" aria-hidden="true"></canvas>
+     <div class="stage-fallback" aria-hidden="true">
+      <svg viewBox="0 0 200 200" fill="none"><rect x="20" y="20" width="160" height="160" rx="18" fill="#0b1a16" stroke="#34d399" stroke-opacity=".6" stroke-width="2"/><rect x="55" y="55" width="90" height="90" rx="12" fill="#16201d" stroke="#34d399" stroke-width="2"/><text x="100" y="108" text-anchor="middle" font-family="monospace" font-weight="700" font-size="26" fill="#34d399">&lt;/&gt;</text><path d="M40 70h15M40 100h15M40 130h15M145 70h15M145 100h15M145 130h15M70 40v15M100 40v15M130 40v15M70 145v15M100 145v15M130 145v15" stroke="#34d399" stroke-width="2" stroke-linecap="round"/></svg>
+     </div>
+     <div class="float-tag t1" aria-hidden="true"><i>HW</i><span>Hardware<small>Placas y periféricos</small></span></div>
+     <div class="float-tag t2" aria-hidden="true"><i>SW</i><span>Software<small>Licencias y apps</small></span></div>
+     <div class="float-tag t3" aria-hidden="true"><i>&lt;/&gt;</i><span>Cursos<small>Aprende a tu ritmo</small></span></div>
+    </div>
+   </div>
+   <div class="scroll-cue" aria-hidden="true"><span></span>Scroll</div>
+  </div>
+
+  <div class="access">
+   <div class="access-copy reveal">
+    <h2>Tu cuenta, tu tienda</h2>
+    <p class="muted">Inicia sesión o crea una cuenta para comprar, vender productos o publicar tus propios cursos.</p>
+    <ul class="feat">
+     <li class="reveal" style="--i:1"><i>🛒</i><span><b>Compra</b><small class="muted">Hardware, licencias y cursos con pago y seguimiento de envío.</small></span></li>
+     <li class="reveal" style="--i:2"><i>📦</i><span><b>Vende</b><small class="muted">Publica productos y gestiona tu inventario.</small></span></li>
+     <li class="reveal" style="--i:3"><i>🎓</i><span><b>Enseña</b><small class="muted">Comparte tu conocimiento como instructor.</small></span></li>
+    </ul>
+   </div>
+  <div class="auth-card reveal" id="registro">
+   <div class="tabs" role="tablist"><button class="tab on" id="tabL" onclick="tab('l')">Iniciar sesión</button><button class="tab" id="tabR" onclick="tab('r')">Crear cuenta</button></div>
+   <div id="boxL">
+    <label for="le">Email</label><input id="le" type="email" placeholder="tu@correo.com" autocomplete="username">
+    <label for="lp">Contraseña</label><input id="lp" type="password" placeholder="••••••••" autocomplete="current-password">
+    <div class="actions"><button class="btn" id="btnL" onclick="login()">Entrar</button></div>
+   </div>
+   <div id="boxR" class="hide">
+    <label for="rn">Nombre</label><input id="rn" placeholder="Tu nombre">
+    <label for="re">Email</label><input id="re" type="email" placeholder="tu@correo.com">
+    <label for="rp">Contraseña</label><input id="rp" type="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+    <label for="rr">Quiero ser</label><select id="rr"><option>cliente</option><option>vendedor</option><option>instructor</option></select>
+    <div class="actions"><button class="btn" id="btnR" onclick="registro()">Crear cuenta</button></div>
+   </div>
+  </div>
+  </div>
+ </section>
+
+ <!-- Sesión iniciada -->
+ <div id="app" class="hide">
+  <div class="hello fade-in"><h1 style="margin:0">Hola, <span id="who"></span></h1><span class="role" id="rolTxt"></span>
+   <a class="btn btn-ghost btn-sm" href="/productos.html" style="margin-left:auto">Ir a productos →</a></div>
+  <div class="dash">
+   <section class="panel reveal"><h3>Mi perfil</h3>
+    <label for="pn">Nombre</label><input id="pn" placeholder="Nombre">
+    <label for="pe">Email</label><input id="pe" placeholder="Email">
+    <label for="pp">Nueva contraseña (opcional)</label><input id="pp" type="password" placeholder="Nueva contraseña (opcional)">
+    <div class="actions"><button class="btn" onclick="guardarPerfil()">Guardar cambios</button></div></section>
+
+   <section id="pedSec" class="panel reveal" style="grid-column:1/-1"><h3>Mis pedidos</h3>
+    <div id="pedidos"></div></section>
+
+   <section id="adm" class="panel hide reveal" style="grid-column:1/-1"><h3>Administrar usuarios</h3>
+    <div class="form-grid">
+     <div><label for="an">Nombre</label><input id="an" placeholder="Nombre"></div>
+     <div><label for="ae">Email</label><input id="ae" placeholder="Email"></div>
+     <div><label for="ap">Contraseña</label><input id="ap" type="password" placeholder="Vacío = no cambia al editar"></div>
+     <div><label for="ar">Rol</label><select id="ar"><option>cliente</option><option>vendedor</option><option>instructor</option><option>administrador</option></select></div>
+    </div>
+    <input id="aid" type="hidden">
+    <div class="actions"><button class="btn" onclick="guardarUsuario()">Guardar</button><button class="btn btn-ghost" onclick="limpiar()">Nuevo</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Nombre</th><th>Email</th><th>Rol</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
+   </section>
+
+   <section id="pedAdm" class="panel hide reveal" style="grid-column:1/-1"><h3>Pedidos y cobros</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Pago</th><th>Envío</th></tr></thead><tbody id="tbPed"></tbody></table></div>
+   </section>
+
+   <section id="envSec" class="panel hide reveal" style="grid-column:1/-1"><h3>Distribución (envíos)</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Tracking</th><th>Destino</th><th>Comprador</th><th>Estado</th><th></th></tr></thead><tbody id="tbEnv"></tbody></table></div>
+   </section>
+  </div>
+ </div>
+</main>
+
+<script src="/js/ui.js"></script>
+<script type="module" src="/js/hero3d.js"></script>
+<script>
+const {$,esc,toast}=DS, v=id=>$(id).value;
+const note=(t,info)=>{const m=$('msg');m.textContent=t;m.className='alert'+(info?' info':'')+(t?'':' hide')};
+const api=async(url,method='GET',body)=>{
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:body&&JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){note(d.error||'Error');throw d}
+  note('');return d};
+const busy=async(btn,fn)=>{btn.disabled=true;btn.classList.add('loading');try{await fn()}finally{btn.disabled=false;btn.classList.remove('loading')}};
+function tab(t){const l=t==='l';$('boxL').classList.toggle('hide',!l);$('boxR').classList.toggle('hide',l);$('tabL').classList.toggle('on',l);$('tabR').classList.toggle('on',!l)}
+
+async function registro(){await busy($('btnR'),async()=>{
+  await api('/api/registro','POST',{nombre:v('rn'),email:v('re'),password:v('rp'),rol:v('rr')});
+  toast('Cuenta creada, ya puedes iniciar sesión');tab('l');$('le').value=v('re')})}
+async function login(){await busy($('btnL'),async()=>{await api('/api/login','POST',{email:v('le'),password:v('lp')});init()})}
+async function init(){
+  try{
+    const u=await api('/api/me');
+    $('auth').classList.add('hide');$('app').classList.remove('hide');
+    $('who').textContent=u.nombre;$('rolTxt').textContent=u.rol;
+    $('pn').value=u.nombre;$('pe').value=u.email;$('pp').value='';
+    if(u.rol==='administrador'){$('adm').classList.remove('hide');cargar();$('pedAdm').classList.remove('hide');cargarPedidosAdm();$('envSec').classList.remove('hide');cargarEnvios()}
+    await cargarMisPedidos();
+    DS.reveal();DS.refreshUser();
+  }catch{note('')}}
+async function guardarPerfil(){
+  await api('/api/me','PUT',{nombre:v('pn'),email:v('pe'),password:v('pp')||undefined});
+  toast('Perfil actualizado');init()}
+async function cargar(){
+  const us=await api('/api/usuarios');
+  $('tb').innerHTML=us.map(u=>`<tr><td>${u.id}</td><td>${esc(u.nombre)}</td><td>${esc(u.email)}</td><td><span class="role">${u.rol}</span></td>
+   <td><button class="btn btn-ghost btn-sm" data-u="${esc(JSON.stringify(u))}" onclick="editar(JSON.parse(this.dataset.u))">Editar</button><button class="btn btn-danger btn-sm" onclick="borrar(${u.id})">Borrar</button></td></tr>`).join('')}
+function editar(u){$('aid').value=u.id;$('an').value=u.nombre;$('ae').value=u.email;$('ar').value=u.rol;$('ap').value='';$('an').focus()}
+function limpiar(){['aid','an','ae','ap'].forEach(i=>$(i).value='')}
+async function guardarUsuario(){
+  const b={nombre:v('an'),email:v('ae'),password:v('ap')||undefined,rol:v('ar')};
+  v('aid')?await api('/api/usuarios/'+v('aid'),'PUT',b):await api('/api/usuarios','POST',b);
+  toast('Usuario guardado');limpiar();cargar()}
+async function borrar(id){if(confirm('¿Eliminar usuario?')){await api('/api/usuarios/'+id,'DELETE');toast('Usuario eliminado');cargar()}}
+
+/* ===== Sprint 3: pedidos / cobros / distribución ===== */
+const EST={pendiente:'Pendiente de pago',pagado:'Pagado',cancelado:'Cancelado',entregado:'Entregado',
+  preparacion:'En preparación',en_transito:'En tránsito'};
+async function cargarMisPedidos(){
+  const ps=await api('/api/pedidos');
+  $('pedidos').innerHTML=ps.map(p=>`<div class="ci" style="flex-wrap:wrap;gap:1rem">
+    <div style="flex:1;min-width:200px"><b>Pedido #${p.id}</b>
+     <small class="muted">${esc(p.direccion)} · ${DS.money(p.total)}</small><br>
+     ${(p.detalles||[]).map(d=>`<small class="muted">${d.cantidad}× ${esc(d.titulo)}</small>`).join(' · ')}
+     ${p.pago?`<br><small class="muted">Pago: ${p.pago.metodo} (${p.pago.estado}) · Ref ${esc(p.pago.referencia||'')}</small>`:''}
+     ${p.envio?`<br><small class="muted">Envío: ${EST[p.envio.estado]||p.envio.estado} · ${esc(p.envio.tracking||'')}</small>`:''}</div>
+    <div><span class="b ${p.estado}">${EST[p.estado]||p.estado}</span></div>
+    ${p.estado==='pendiente'?`<button class="btn btn-danger btn-sm" onclick="cancelarPedido(${p.id})">Cancelar</button>`:''}
+   </div>`).join('')||'<div class="empty">Aún no tienes pedidos.</div>'}
+async function cancelarPedido(id){if(!confirm('¿Cancelar pedido?'))return;
+  await api('/api/pedidos/'+id+'/cancelar','POST');toast('Pedido cancelado');cargarMisPedidos()}
+async function cargarPedidosAdm(){
+  const ps=await api('/api/admin/pedidos');
+  $('tbPed').innerHTML=ps.map(p=>`<tr><td>${p.id}</td><td>${esc(p.cliente)}</td><td>${DS.money(p.total)}</td>
+    <td><span class="b ${p.estado}">${EST[p.estado]||p.estado}</span></td>
+    <td>${p.pago?`<span class="b completado">${p.pago.metodo}</span><br><small class="muted">${DS.money(p.pago.monto)}</small>`:'<span class="muted">—</span>'}</td>
+    <td>${p.envio?`<span class="b ${p.envio.estado}">${EST[p.envio.estado]||p.envio.estado}</span>`:'<span class="muted">—</span>'}</td></tr>`).join('')
+    ||'<tr><td colspan="6" class="muted">Sin pedidos.</td></tr>'}
+async function cargarEnvios(){
+  const es=await api('/api/admin/envios');
+  const SIG={preparacion:'en_transito',en_transito:'entregado'};
+  $('tbEnv').innerHTML=es.map(e=>`<tr><td>${e.id}</td><td>${esc(e.tracking||'—')}</td><td>${esc(e.destino)}</td><td>${esc(e.comprador)}</td>
+   <td><span class="b ${e.estado}">${EST[e.estado]||e.estado}</span></td>
+   <td>${SIG[e.estado]?`<button class="btn btn-sm" onclick="moverEnvio(${e.id},'${SIG[e.estado]}')">${SIG[e.estado]==='en_transito'?'Despachar':'Marcar entregado'}</button>`:'<span class="muted">Completado</span>'}</td></tr>`).join('')
+    ||'<tr><td colspan="6" class="muted">Sin envíos.</td></tr>'}
+async function moverEnvio(id,estado){await api('/api/admin/envios/'+id,'PUT',{estado});toast('Envío actualizado');cargarEnvios();cargarPedidosAdm()}
+
+DS.mountHeader('home').then(()=>{init()});
+DS.reveal();
+if(location.hash==='#registro')tab('r');
+['le','lp'].forEach(i=>$(i).addEventListener('keydown',e=>{if(e.key==='Enter')login()}));
+</script></body></html>

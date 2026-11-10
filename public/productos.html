@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DevStore – Productos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head><body>
+<div id="hdr"></div>
+
+<section class="hero" id="hero" aria-label="Destacados"><div class="container" style="padding-top:2rem"><div class="sk" style="min-height:300px"></div></div></section>
+
+<main class="container">
+ <div id="msg" class="alert info hide" role="status"></div>
+
+ <!-- Ofertante -->
+ <section id="ofe" class="panel hide reveal"><h2>Mis productos y cursos</h2>
+  <p class="muted" style="margin-top:0">Todo cambio importante vuelve a revisión del administrador.</p>
+  <input id="pid" type="hidden">
+  <div class="form-grid">
+   <div class="full"><label for="t">Título</label><input id="t" placeholder="Ej. Teclado mecánico 75%"></div>
+   <div class="full"><label for="d">Descripción</label><textarea id="d" placeholder="Describe tu producto"></textarea></div>
+   <div><label for="pr">Precio / tarifa</label><input id="pr" type="number" step="0.01" placeholder="0.00"></div>
+   <div><label for="c">Categoría</label><input id="c" placeholder="Ej. Hardware"></div>
+   <div><label for="ti">Tipo</label><select id="ti" onchange="verNivel()"></select></div>
+   <div id="nvBox"><label for="nv">Nivel</label><select id="nv"><option>principiante</option><option>intermedio</option><option>avanzado</option></select></div>
+   <div><label for="s">Stock</label><input id="s" type="number" min="0" placeholder="Stock" value="0"></div>
+  </div>
+  <div class="actions"><button class="btn" id="btnG" onclick="guardar()">Guardar</button><button class="btn btn-ghost" onclick="limpiar()">Nuevo</button></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Título</th><th>Precio</th><th>Estado</th><th>Motivo</th><th></th></tr></thead><tbody id="mios"></tbody></table></div>
+  <h3 style="margin-top:1.5rem">Almacén — entrada de stock</h3>
+  <div class="form-grid">
+   <div><label for="aprod">Producto</label><select id="aprod"></select></div>
+   <div><label for="acant">Cantidad</label><input id="acant" type="number" min="1" value="1"></div>
+   <div><label for="amot">Motivo</label><input id="amot" placeholder="Ej. Reposición proveedor"></div>
+  </div>
+  <div class="actions"><button class="btn" onclick="entradaStock()">Registrar entrada</button></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th><th>Fecha</th></tr></thead><tbody id="movs"></tbody></table></div>
+ </section>
+
+ <!-- Administrador -->
+ <section id="adm" class="panel hide reveal"><h2>Validación de contenido</h2>
+  <div class="tbl-wrap"><table><thead><tr><th>Título</th><th>Ofertante</th><th>Precio</th><th>Tipo</th><th></th></tr></thead><tbody id="pend"></tbody></table></div>
+ </section>
+
+ <!-- Catálogo -->
+ <section class="section" id="catSec">
+  <div class="section-head"><h2>Catálogo</h2></div>
+  <div class="cats" id="cats"></div>
+  <div class="toolbar">
+   <input class="grow" id="q" type="search" placeholder="Buscar por nombre, categoría u ofertante…" aria-label="Buscar en el catálogo">
+   <select id="so" aria-label="Ordenar"><option value="nuevo">Más recientes</option><option value="asc">Precio: menor a mayor</option><option value="desc">Precio: mayor a menor</option><option value="az">Nombre A–Z</option></select>
+   <button class="btn btn-ghost" id="fbtn" aria-expanded="false">Filtros ▾</button>
+  </div>
+  <div class="filters" id="filters"><div class="filters-in">
+   <label>Tipo</label><div class="chips" id="tipos">
+    <button class="chip on" data-t="">Todos</button><button class="chip" data-t="fisico">Físicos</button><button class="chip" data-t="digital">Digitales</button><button class="chip" data-t="curso">Cursos</button></div>
+   <div class="form-grid"><div><label for="pmin">Precio mínimo</label><input id="pmin" type="number" min="0" placeholder="0"></div>
+    <div><label for="pmax">Precio máximo</label><input id="pmax" type="number" min="0" placeholder="Sin límite"></div></div>
+   <div class="actions"><button class="btn btn-ghost btn-sm" id="fclear">Limpiar filtros</button></div>
+  </div></div>
+  <div class="count" id="count"></div>
+  <div class="grid" id="cat"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+ </section>
+
+ <section class="section hide" id="cursosSec">
+  <div class="section-head"><h2>Cursos destacados</h2><button class="btn btn-ghost btn-sm" data-t="curso">Ver todos</button></div>
+  <div class="rail" id="cursos"></div>
+ </section>
+</main>
+<footer class="container muted" style="padding:3rem 0 2rem;font-size:.8rem">© DevStore · Hardware, software y cursos para programadores</footer>
+
+<div class="modal-bg" id="mbg" role="dialog" aria-modal="true" aria-labelledby="mt"><div class="modal" id="modal"></div></div>
+
+<script src="/js/ui.js"></script>
+<script>
+const {$,esc,money,toast,cart}=DS, v=id=>$(id).value;
+const TIPO={fisico:'Físico',digital:'Digital',curso:'Curso'}, ICO={fisico:'⌨️',digital:'💿',curso:'🎓'};
+const hue=s=>[...String(s)].reduce((a,c)=>(a*31+c.charCodeAt(0))%360,7);
+const note=t=>{const m=$('msg');m.textContent=t;m.classList.toggle('hide',!t)};
+const api=async(url,method='GET',body)=>{
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:body&&JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){toast(d.error||'Error','err');throw d}
+  return d};
+let lista=[],todos=[],slide=0,timer=null;
+const P=new URLSearchParams(location.search);
+const F={q:P.get('q')||'',tipo:['fisico','digital','curso'].includes(P.get('tipo'))?P.get('tipo'):'',cat:'',min:'',max:'',so:'nuevo'};
+const byId=id=>todos.find(p=>p.id===id);
+
+/* ---------- Sesión y paneles por rol ---------- */
+async function init(){
+  const u=await DS.mountHeader(F.tipo==='curso'?'cur':F.tipo==='digital'?'soft':'prod',t=>{F.q=t;$('q').value=t;pintar()});
+  if(!u)note('Inicia sesión en la página de inicio para gestionar productos o comprar.');
+  if(u&&['vendedor','instructor'].includes(u.rol)){
+    $('ti').innerHTML=(u.rol==='vendedor'?['fisico','digital']:['curso']).map(t=>`<option>${t}</option>`).join('');verNivel();
+    $('ofe').classList.remove('hide');cargarMios()}
+  if(u&&u.rol==='administrador'){$('adm').classList.remove('hide');cargarPend()}
+  $('q').value=F.q;sync();await cargarCat();DS.reveal()}
+
+/* ---------- Ofertante (HU-01 / HU-02) ---------- */
+async function cargarMios(){
+  lista=await api('/api/productos/mios');
+  $('mios').innerHTML=lista.map((p,i)=>`<tr><td>${esc(p.titulo)}</td><td>${money(p.precio)}</td>
+   <td><span class="b ${p.estado}">${p.estado}</span></td><td>${esc(p.motivo_rechazo)}</td>
+   <td><button class="btn btn-ghost btn-sm" onclick="editar(${i})">Editar</button><button class="btn btn-danger btn-sm" onclick="borrar(${p.id})">Borrar</button></td></tr>`).join('')
+   ||'<tr><td colspan="5" class="muted">Aún no tienes productos.</td></tr>';
+  $('aprod').innerHTML=lista.map(p=>`<option value="${p.id}">${esc(p.titulo)} (stock: ${p.stock})</option>`).join('')
+   ||'<option value="">Sin productos</option>';
+  cargarMovs()}
+async function cargarMovs(){
+  const ms=await api('/api/almacen/movimientos').catch(()=>[]);
+  $('movs').innerHTML=ms.map(m=>`<tr><td>${esc(m.titulo)}</td><td>${m.tipo}</td><td>${m.cantidad}</td>
+   <td>${esc(m.motivo||'')}</td><td class="muted">${esc((m.creado||'').slice(0,16))}</td></tr>`).join('')
+   ||'<tr><td colspan="5" class="muted">Sin movimientos.</td></tr>'}
+async function entradaStock(){
+  const producto_id=parseInt(v('aprod'));const cantidad=parseInt(v('acant'));
+  if(!producto_id)return toast('Selecciona un producto','err');
+  await api('/api/almacen/entrada','POST',{producto_id,cantidad,motivo:v('amot')||undefined});
+  toast('Entrada registrada');$('amot').value='';cargarMios();cargarCat()}
+function verNivel(){$('nvBox').classList.toggle('hide',v('ti')!=='curso')}
+function editar(i){const p=lista[i];$('pid').value=p.id;$('t').value=p.titulo;$('d').value=p.descripcion;
+  $('pr').value=p.precio;$('c').value=p.categoria;$('ti').value=p.tipo;if(p.nivel)$('nv').value=p.nivel;verNivel();$('s').value=p.stock;
+  $('ofe').scrollIntoView({behavior:'smooth'})}
+function limpiar(){['pid','t','d','pr','c'].forEach(i=>$(i).value='');$('s').value=0}
+async function guardar(){
+  const b={titulo:v('t'),descripcion:v('d'),precio:parseFloat(v('pr')),categoria:v('c'),tipo:v('ti'),nivel:v('ti')==='curso'?v('nv'):undefined,stock:parseInt(v('s')||0)};
+  const btn=$('btnG');btn.disabled=true;btn.classList.add('loading');
+  try{const r=v('pid')?await api('/api/productos/'+v('pid'),'PUT',b):await api('/api/productos','POST',b);
+    toast('Guardado (estado: '+r.estado+')');limpiar();cargarMios();cargarCat()}
+  finally{btn.disabled=false;btn.classList.remove('loading')}}
+async function borrar(id){if(confirm('¿Eliminar?')){await api('/api/productos/'+id,'DELETE');toast('Producto eliminado');cargarMios();cargarCat()}}
+
+/* ---------- Administrador (HU-03) ---------- */
+async function cargarPend(){
+  const ps=await api('/api/admin/productos?estado=pendiente');
+  $('pend').innerHTML=ps.map(p=>`<tr><td>${esc(p.titulo)}<br><small class="muted">${esc(p.descripcion)}</small></td><td>${esc(p.ofertante)}</td>
+   <td>${money(p.precio)}</td><td>${p.tipo}${p.nivel?' ('+p.nivel+')':''}</td>
+   <td><button class="btn btn-ok btn-sm" onclick="aprobar(${p.id})">Aprobar</button><button class="btn btn-danger btn-sm" onclick="rechazar(${p.id})">Rechazar</button></td></tr>`).join('')
+   ||'<tr><td colspan="5" class="muted">Sin pendientes 🎉</td></tr>'}
+async function aprobar(id){await api(`/api/admin/productos/${id}/aprobar`,'POST');toast('Producto aprobado');cargarPend();cargarCat()}
+async function rechazar(id){const m=prompt('Motivo del rechazo:');if(m===null)return;
+  await api(`/api/admin/productos/${id}/rechazar`,'POST',{motivo:m});toast('Producto rechazado');cargarPend()}
+
+/* ---------- Catálogo público ---------- */
+async function cargarCat(){todos=await api('/api/productos');pintar();hero();cursos()}
+function filtrar(){
+  const q=F.q.trim().toLowerCase();
+  const r=todos.filter(p=>(!q||`${p.titulo} ${p.descripcion} ${p.categoria} ${p.ofertante}`.toLowerCase().includes(q))
+    &&(!F.tipo||p.tipo===F.tipo)&&(!F.cat||p.categoria===F.cat)&&(F.min===''||p.precio>=+F.min)&&(F.max===''||p.precio<=+F.max));
+  const o={asc:(a,b)=>a.precio-b.precio,desc:(a,b)=>b.precio-a.precio,az:(a,b)=>a.titulo.localeCompare(b.titulo),nuevo:(a,b)=>b.id-a.id};
+  return r.sort(o[F.so])}
+function card(p,i){
+  const agotado=p.tipo==='fisico'&&p.stock<1;
+  const disp=agotado?`<span class="stock avail out">Agotado</span>`:p.tipo==='fisico'&&p.stock<=5?`<span class="stock avail low">Quedan ${p.stock}</span>`:`<span class="avail">${p.tipo==='fisico'?'En stock':'Disponible'}</span>`;
+  return `<article class="card t-${p.tipo} reveal" style="--i:${i%8}"><div class="cover" style="--h:${hue(p.categoria)}"><span class="ico">${ICO[p.tipo]}</span>
+   <span class="tag">${TIPO[p.tipo]}</span>${p.nivel?`<span class="tag lvl">${p.nivel}</span>`:''}</div>
+   <div class="cbody"><span class="cat-l">${esc(p.categoria)}</span><h3>${esc(p.titulo)}</h3><p class="desc">${esc(p.descripcion)}</p>
+   <p class="by">${p.tipo==='curso'?'Instructor':'Vendedor'}: ${esc(p.ofertante)}</p>
+   <div class="foot"><div><span class="price">${money(p.precio)}</span>${disp}</div>
+   <div class="acts"><button class="btn btn-ghost btn-sm" data-d="${p.id}">Detalles</button><button class="btn btn-sm" data-a="${p.id}" ${agotado?'disabled':''}>Agregar</button></div></div></div></article>`}
+function pintar(){
+  const cats=[...new Set(todos.map(p=>p.categoria))];
+  $('cats').innerHTML=`<button class="cat-tile ${F.cat?'':'on'}" data-c=""><i>🧭</i><span>Todas<small>${todos.length} producto${todos.length===1?'':'s'}</small></span></button>`+
+    cats.map(c=>`<button class="cat-tile ${F.cat===c?'on':''}" data-c="${esc(c)}"><i>${ICO[todos.find(p=>p.categoria===c).tipo]}</i><span>${esc(c)}<small>${todos.filter(p=>p.categoria===c).length} producto${todos.filter(p=>p.categoria===c).length===1?'':'s'}</small></span></button>`).join('');
+  const r=filtrar();
+  $('count').textContent=`${r.length} resultado${r.length===1?'':'s'}`;
+  $('cat').innerHTML=r.map(card).join('')||`<div class="empty" style="grid-column:1/-1"><span class="e-ico" aria-hidden="true">${todos.length?'🔎':'📦'}</span><b>${todos.length?'Ningún producto coincide con tu búsqueda.':'Aún no hay productos aprobados.'}</b>${todos.length?'<small>Prueba con otros términos o usa «Limpiar filtros».</small>':''}</div>`;
+  DS.reveal($('cat'))}
+function sync(){$('so').value=F.so;document.querySelectorAll('#tipos .chip').forEach(c=>c.classList.toggle('on',c.dataset.t===F.tipo))}
+
+/* ---------- Banner principal ---------- */
+function hero(){
+  const top=todos.slice(0,4),el=$('hero');clearInterval(timer);
+  if(!top.length){el.innerHTML=`<div class="slide on"><div class="container"><div class="txt"><span class="kicker">DevStore</span><h1>Todo para tu próximo proyecto</h1>
+    <p>Pronto verás aquí los productos y cursos destacados. ¡Sé el primero en publicar!</p><a class="btn btn-lg" href="/#registro">Crear cuenta</a></div></div><span class="big">💻</span></div>`;return}
+  el.innerHTML=top.map((p,i)=>`<div class="slide ${i?'':'on'}" style="--h:${hue(p.categoria)}"><div class="container"><div class="txt">
+    <span class="kicker">${TIPO[p.tipo]} · ${esc(p.categoria)}</span><h1>${esc(p.titulo)}</h1><p>${esc(p.descripcion)}</p>
+    <div class="hero-price">${money(p.precio)}</div><div class="actions" style="margin:0"><button class="btn btn-lg" data-a="${p.id}">Agregar al carrito</button><button class="btn btn-ghost btn-lg" data-d="${p.id}">Ver detalles</button></div></div></div>
+    <span class="big" aria-hidden="true">${ICO[p.tipo]}</span></div>`).join('')+
+    (top.length>1?`<button class="arrow prev" data-s="-1" aria-label="Anterior">‹</button><button class="arrow next" data-s="1" aria-label="Siguiente">›</button>
+    <div class="hero-nav">${top.map((_,i)=>`<button class="dot ${i?'':'on'}" data-g="${i}" aria-label="Banner ${i+1}"></button>`).join('')}</div>`:'');
+  slide=0;auto()}
+function go(n){const s=document.querySelectorAll('.slide'),d=document.querySelectorAll('.dot');if(!s.length)return;
+  slide=(n+s.length)%s.length;s.forEach((x,i)=>x.classList.toggle('on',i===slide));d.forEach((x,i)=>x.classList.toggle('on',i===slide))}
+function auto(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;clearInterval(timer);timer=setInterval(()=>go(slide+1),6500)}
+$('hero').addEventListener('mouseenter',()=>clearInterval(timer));$('hero').addEventListener('mouseleave',auto);
+
+/* ---------- Cursos destacados ---------- */
+function cursos(){const c=todos.filter(p=>p.tipo==='curso').slice(0,8);
+  $('cursosSec').classList.toggle('hide',!c.length);$('cursos').innerHTML=c.map(card).join('');DS.reveal($('cursos'))}
+
+/* ---------- Detalles ---------- */
+function detalle(p){
+  const agotado=p.tipo==='fisico'&&p.stock<1;
+  const disp=agotado?['out','Agotado']:p.tipo==='fisico'?[p.stock<=5?'low':'ok','En stock ('+p.stock+')']:['ok','Disponible'];
+  $('modal').innerHTML=`<div class="cover t-${p.tipo}" style="--h:${hue(p.categoria)}"><span class="ico" style="font-size:5rem">${ICO[p.tipo]}</span><span class="tag">${TIPO[p.tipo]}</span><button class="x" data-x aria-label="Cerrar">✕</button></div>
+   <div class="cbody"><span class="cat-l">${esc(p.categoria)}</span><h2 id="mt">${esc(p.titulo)}</h2><p class="muted" style="white-space:pre-line">${esc(p.descripcion)}</p>
+   <div class="meta"><div class="m-price"><small>Precio</small><b>${money(p.precio)}</b></div><div><small>${p.tipo==='curso'?'Instructor':'Vendedor'}</small>${esc(p.ofertante)}</div>${p.nivel?`<div><small>Nivel</small>${p.nivel}</div>`:''}
+   ${p.tipo==='fisico'?`<div><small>Stock</small>${p.stock}</div>`:''}<div><small>Tipo</small>${TIPO[p.tipo]}</div><div><small>Disponibilidad</small><span class="m-${disp[0]}">${disp[1]}</span></div></div>
+   <div class="actions"><button class="btn btn-lg" data-a="${p.id}" ${agotado?'disabled':''}>Agregar al carrito</button><button class="btn btn-ghost btn-lg" data-x>Cerrar</button></div></div>`;
+  $('mbg').classList.add('open')}
+
+/* ---------- Eventos (delegación) ---------- */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-a],[data-d],[data-c],[data-t],[data-s],[data-g],[data-x]');
+  if(e.target===$('mbg'))return $('mbg').classList.remove('open');
+  if(!t)return;const d=t.dataset;
+  if('a' in d){const p=byId(+d.a);if(p)cart.add(p)}
+  else if('d' in d){const p=byId(+d.d);if(p)detalle(p)}
+  else if('c' in d){F.cat=d.c;pintar();$('q').scrollIntoView({behavior:'smooth',block:'center'})}
+  else if('t' in d){F.tipo=d.t;sync();pintar();if(t.closest('#cursosSec'))$('catSec').scrollIntoView({behavior:'smooth'})}
+  else if('s' in d){go(slide+ +d.s);auto()}
+  else if('g' in d){go(+d.g);auto()}
+  else if('x' in d)$('mbg').classList.remove('open')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('mbg').classList.remove('open')});
+/* Foco de luz que sigue al cursor sobre las tarjetas (solo estético) */
+document.addEventListener('pointermove',e=>{const c=e.target.closest&&e.target.closest('.card');if(!c)return;const r=c.getBoundingClientRect();c.style.setProperty('--mx',(e.clientX-r.left)+'px');c.style.setProperty('--my',(e.clientY-r.top)+'px')},{passive:true});
+$('q').addEventListener('input',e=>{F.q=e.target.value;pintar()});
+$('so').addEventListener('change',e=>{F.so=e.target.value;pintar()});
+$('pmin').addEventListener('input',e=>{F.min=e.target.value;pintar()});
+$('pmax').addEventListener('input',e=>{F.max=e.target.value;pintar()});
+$('fbtn').addEventListener('click',()=>{const o=$('filters').classList.toggle('open');$('fbtn').setAttribute('aria-expanded',o);$('fbtn').textContent=o?'Filtros ▴':'Filtros ▾'});
+$('fclear').addEventListener('click',()=>{Object.assign(F,{q:'',tipo:'',cat:'',min:'',max:'',so:'nuevo'});$('q').value=$('pmin').value=$('pmax').value='';
+  document.querySelectorAll('.hdr input[name=q]').forEach(i=>i.value='');sync();pintar()});
+if(F.tipo)$('filters').classList.add('open');
+init();
+</script></body></html>

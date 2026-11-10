@@ -1,0 +1,15 @@
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes shimmer{to{background-position:-200% 0}}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes bump{40%{transform:scale(1.5)}100%{transform:scale(1)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .6s var(--ease),transform .6s var(--ease);transition-delay:calc(var(--i,0) * 50ms)}
+.reveal.in{opacity:1;transform:none}
+.card.reveal.in:hover{transition-delay:0s}
+.bump{animation:bump .4s var(--ease)}
+.fade-in{animation:rise .5s var(--ease) both}
+.loading::after{content:"";display:inline-block;width:14px;height:14px;margin-left:.5rem;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0s!important;scroll-behavior:auto!important}
+  .reveal{opacity:1;transform:none}
+}
