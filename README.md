@@ -57,3 +57,24 @@ Admin inicial: admin@devstore.com / Admin123!
 ```bash
 npm test   # 57 tests (Sprint 2: 31 + Sprint 3: 26)
 ```
+
+## Despliegue
+
+### Subir a GitHub
+```bash
+git remote add origin https://github.com/TU_USUARIO/devstore.git
+git push -u origin main
+```
+
+### Desplegar en Render
+1. En [render.com](https://render.com) → **New** → **Blueprint** y conecta el repo de GitHub.
+2. Render lee `render.yaml` y crea el servicio web automáticamente:
+   - Build: `npm install` · Start: `npm start` · Node 20.18.0
+   - `SECRET` se genera automáticamente (sesiones).
+3. Tras el primer deploy, la URL pública queda en el dashboard del servicio.
+
+Notas:
+- El servidor usa `process.env.PORT` (Render lo asigna); en local usa `3000`.
+- En plan **free** el disco es efímero: `devstore.db` se recrea en cada redesplegar
+  (el admin se siembra automáticamente). Para persistencia, adjunta un disco en
+  `/var/data` y cambia `DB_PATH` a `/var/data/devstore.db` en `render.yaml`.
