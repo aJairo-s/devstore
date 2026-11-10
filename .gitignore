@@ -2,10 +2,10 @@
 node_modules/
 
 # Base de datos local (se regenera al arrancar el servidor)
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
+# *.db
+# *.db-journal
+# *.db-wal
+# *.db-shm
 
 # Variables de entorno y secretos
 .env
