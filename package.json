@@ -4,7 +4,7 @@
   "description": "DevStore — Plataforma de cursos de desarrollo de software",
   "main": "server.js",
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node server.js",

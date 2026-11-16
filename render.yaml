@@ -5,11 +5,12 @@ services:
     name: devstore
     runtime: node
     plan: free
-    nodeVersion: "22.x"
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_VERSION
+        value: 22
       # Secreto de sesión: Render lo genera y guarda en Variables de Entorno.
       - key: SECRET
         generateValue: true
