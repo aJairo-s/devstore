@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cursos · DevStore</title>
+<meta name="description" content="Explora cursos de desarrollo de software por área, nivel y precio.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div id="hdr"></div>
+
+<main id="main">
+  <div class="container">
+    <div class="page-head">
+      <span class="eyebrow">Catálogo</span>
+      <h1>Cursos de desarrollo de software</h1>
+      <p>Encuentra tu próximo paso: fundamentos, frontend, backend, datos, DevOps, móvil, IA y más. Filtra por área, nivel y presupuesto.</p>
+    </div>
+
+    <div class="catalog-layout">
+      <aside class="filters-panel" id="filtersPanel" aria-label="Filtros del catálogo">
+        <div class="filter-group">
+          <b>Buscar</b>
+          <input id="fq" type="search" placeholder="Título, tema o instructor…" aria-label="Buscar cursos">
+        </div>
+        <div class="filter-group">
+          <b>Área</b>
+          <div class="filter-list" id="catList"></div>
+        </div>
+        <div class="filter-group">
+          <b>Nivel</b>
+          <div class="chips" id="nivelChips">
+            <button class="chip on" data-nivel="" type="button">Todos</button>
+            <button class="chip" data-nivel="principiante" type="button">Principiante</button>
+            <button class="chip" data-nivel="intermedio" type="button">Intermedio</button>
+            <button class="chip" data-nivel="avanzado" type="button">Avanzado</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <b>Precio máximo</b>
+          <input id="fpmax" type="number" min="0" step="1" placeholder="Sin límite">
+          <p class="hint">Deja vacío para ver todos los precios.</p>
+        </div>
+        <div class="filter-group">
+          <button class="btn btn-ghost btn-sm btn-block" id="clearFilters" type="button">Limpiar filtros</button>
+        </div>
+      </aside>
+
+      <section aria-live="polite">
+        <div class="results-head">
+          <div id="resultTitle" class="count">Cargando cursos…</div>
+          <div class="row">
+            <button class="btn btn-ghost btn-sm mobile-filter-btn" id="filterToggle" type="button" aria-expanded="false" aria-controls="filtersPanel">Filtros</button>
+            <label class="sr-only" for="sort">Ordenar cursos</label>
+            <select id="sort">
+              <option value="nuevo">Más recientes</option>
+              <option value="populares">Más populares</option>
+              <option value="precio_asc">Precio: menor a mayor</option>
+              <option value="precio_desc">Precio: mayor a menor</option>
+              <option value="az">Título A–Z</option>
+            </select>
+          </div>
+        </div>
+        <div id="grid" class="grid course-grid"></div>
+        <div id="empty" class="empty hide"><span class="empty-ico">🔎</span><b>No encontramos cursos con esos filtros</b><small>Prueba con otra área, nivel o limpia los filtros.</small></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container footer-in">
+    <div><b>DevStore</b> · Aprende desarrollo de software con proyectos reales.</div>
+    <div class="footer-links"><a href="/">Inicio</a><a href="/acceso.html?tab=instructor">Enseñar</a><a href="/acceso.html">Acceder</a></div>
+  </div>
+</footer>
+
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const { $, $$, esc, api, courseCard, skeletons, debounce, params } = DS;
+  await DS.mountHeader('cursos');
+  const p = params();
+  const state = {
+    q: p.get('q') || '',
+    categoria: p.get('categoria') || '',
+    nivel: p.get('nivel') || '',
+    orden: p.get('orden') || 'nuevo',
+    precio_max: p.get('precio_max') || ''
+  };
+  let categorias = [];
+  let ultimaCarga = 0;
+
+  function queryString() {
+    const q = new URLSearchParams();
+    if (state.q) q.set('q', state.q);
+    if (state.categoria) q.set('categoria', state.categoria);
+    if (state.nivel) q.set('nivel', state.nivel);
+    if (state.orden && state.orden !== 'nuevo') q.set('orden', state.orden);
+    if (state.precio_max) q.set('precio_max', state.precio_max);
+    q.set('limit', '60');
+    return q.toString();
+  }
+
+  function syncUrl() {
+    const q = new URLSearchParams();
+    if (state.q) q.set('q', state.q);
+    if (state.categoria) q.set('categoria', state.categoria);
+    if (state.nivel) q.set('nivel', state.nivel);
+    if (state.orden !== 'nuevo') q.set('orden', state.orden);
+    if (state.precio_max) q.set('precio_max', state.precio_max);
+    const url = q.toString() ? `/cursos.html?${q}` : '/cursos.html';
+    history.replaceState(null, '', url);
+  }
+
+  function renderCategorias() {
+    const total = categorias.reduce((a, c) => a + c.cursos, 0);
+    $('#catList').innerHTML = `<button type="button" data-cat="" class="${state.categoria ? '' : 'on'}"><span>Todas las áreas</span><small>${total}</small></button>` +
+      categorias.map(c => `<button type="button" data-cat="${esc(c.slug)}" class="${state.categoria === c.slug ? 'on' : ''}"><span>${esc(c.icono || '')} ${esc(c.nombre)}</span><small>${c.cursos}</small></button>`).join('');
+  }
+
+  function syncControles() {
+    $('#fq').value = state.q;
+    $('#fpmax').value = state.precio_max;
+    $('#sort').value = state.orden;
+    $$('#nivelChips .chip').forEach(c => c.classList.toggle('on', c.dataset.nivel === state.nivel));
+    renderCategorias();
+  }
+
+  async function cargar() {
+    const token = ++ultimaCarga;
+    $('#grid').innerHTML = skeletons(6);
+    $('#empty').classList.add('hide');
+    syncUrl();
+    try {
+      const cursos = await api('/api/cursos?' + queryString());
+      if (token !== ultimaCarga) return;
+      const cat = categorias.find(c => c.slug === state.categoria);
+      $('#resultTitle').textContent = `${cursos.length} curso${cursos.length === 1 ? '' : 's'}${cat ? ' en ' + cat.nombre : ''}`;
+      $('#grid').innerHTML = cursos.map(courseCard).join('');
+      $('#empty').classList.toggle('hide', cursos.length > 0);
+      if (!cursos.length) $('#grid').innerHTML = '';
+    } catch (e) {
+      if (token !== ultimaCarga) return;
+      $('#grid').innerHTML = '';
+      $('#empty').classList.remove('hide');
+      $('#empty').innerHTML = `<span class="empty-ico">⚠️</span><b>No se pudo cargar el catálogo</b><small>${esc(e.message)}</small>`;
+    }
+  }
+
+  $('#catList').addEventListener('click', e => {
+    const b = e.target.closest('[data-cat]');
+    if (!b) return;
+    state.categoria = b.dataset.cat;
+    syncControles();
+    cargar();
+  });
+  $('#nivelChips').addEventListener('click', e => {
+    const b = e.target.closest('[data-nivel]');
+    if (!b) return;
+    state.nivel = b.dataset.nivel;
+    syncControles();
+    cargar();
+  });
+  $('#fq').addEventListener('input', debounce(e => { state.q = e.target.value.trim(); cargar(); }, 280));
+  $('#fpmax').addEventListener('input', debounce(e => { state.precio_max = e.target.value; cargar(); }, 350));
+  $('#sort').addEventListener('change', e => { state.orden = e.target.value; cargar(); });
+  $('#clearFilters').addEventListener('click', () => {
+    Object.assign(state, { q: '', categoria: '', nivel: '', orden: 'nuevo', precio_max: '' });
+    syncControles();
+    cargar();
+  });
+  $('#filterToggle').addEventListener('click', () => {
+    const open = $('#filtersPanel').classList.toggle('open');
+    $('#filterToggle').setAttribute('aria-expanded', String(open));
+  });
+
+  $('#grid').innerHTML = skeletons(6);
+  try {
+    categorias = await api('/api/categorias');
+    syncControles();
+    await cargar();
+  } catch (e) {
+    $('#resultTitle').textContent = 'Error al cargar';
+  }
+})();
+</script>
+</body>
+</html>

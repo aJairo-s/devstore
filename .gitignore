@@ -26,3 +26,6 @@ Thumbs.db
 
 # Cobertura / reportes
 coverage/
+
+# Archivos subidos por instructores (videos locales y códigos QR)
+uploads/

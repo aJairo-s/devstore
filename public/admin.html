@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administración · DevStore</title>
+<meta name="description" content="Panel de administración de DevStore: verificación de instructores, aprobación de cursos, usuarios y compras.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div id="hdr"></div>
+<main id="main">
+  <div class="container">
+    <div id="adminRoot" class="dash-layout">
+      <div class="skeleton" style="height:260px"></div>
+      <div class="skeleton" style="height:560px"></div>
+    </div>
+  </div>
+</main>
+<footer class="footer"><div class="container footer-in"><div><b>DevStore</b> · Administración de la plataforma.</div><div class="footer-links"><a href="/cursos.html">Catálogo</a><a href="/">Inicio</a></div></div></footer>
+
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const { $, $$, esc, api, money, toast, statusBadge, formatDate, initials, openModal, closeModal } = DS;
+  const user = await DS.requireAuth(['administrador']);
+  if (!user) return;
+  await DS.mountHeader('admin');
+  const root = $('#adminRoot');
+
+  const TABS = [
+    { key: 'resumen', label: 'Resumen' },
+    { key: 'instructores', label: 'Instructores' },
+    { key: 'cursos', label: 'Cursos' },
+    { key: 'usuarios', label: 'Usuarios' },
+    { key: 'compras', label: 'Compras' }
+  ];
+  let tab = 'resumen';
+  let resumen = null;
+  let instructores = [];
+  let cursos = [];
+  let usuarios = [];
+  let compras = [];
+  let filtroInstructor = 'pendiente';
+  let filtroCurso = 'pendiente';
+  let busquedaUsuarios = '';
+  let filtroRol = '';
+
+  function shell(content) {
+    root.innerHTML = `
+      <aside class="side-nav">
+        <div class="side-user"><span class="avatar">${esc(initials(user.nombre + ' ' + (user.apellidos || '')))}</span><div><b>${esc(user.nombre)}</b><small>Administrador</small></div></div>
+        ${TABS.map(t => `<a href="#${t.key}" data-tab-link="${t.key}" class="${tab === t.key ? 'on' : ''}">${esc(t.label)}</a>`).join('')}
+        <a href="/cursos.html">Ver catálogo</a>
+      </aside>
+      <div class="dash-main">
+        <div class="page-title">
+          <div><h1>Administración</h1><p>Revisa instructores, aprueba cursos y gestiona la plataforma.</p></div>
+          <span class="badge badge-accent">Solo administración</span>
+        </div>
+        <div class="tabs-bar" role="tablist" aria-label="Secciones de administración">
+          ${TABS.map(t => `<button type="button" role="tab" data-tab="${t.key}" class="${tab === t.key ? 'on' : ''}" aria-selected="${tab === t.key}">${esc(t.label)}</button>`).join('')}
+        </div>
+        <div id="tabPanel">${content}</div>
+      </div>`;
+
+    root.onclick = e => {
+      const link = e.target.closest('[data-tab-link]');
+      if (link) { e.preventDefault(); ir(link.dataset.tabLink); return; }
+      const boton = e.target.closest('[data-tab]');
+      if (boton) { ir(boton.dataset.tab); return; }
+      manejarAccion(e);
+    };
+    root.querySelector('.tabs-bar').addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const i = TABS.findIndex(t => t.key === tab);
+      const next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length];
+      ir(next.key);
+    });
+  }
+
+  function ir(nuevo) {
+    if (!TABS.some(t => t.key === nuevo)) return;
+    tab = nuevo;
+    history.replaceState(null, '', '#' + nuevo);
+    pintar();
+  }
+
+  function pintar() {
+    shell(`<div class="skeleton" style="height:260px"></div>`);
+    const panel = $('#tabPanel');
+    if (tab === 'resumen') panel.innerHTML = resumenHtml();
+    else if (tab === 'instructores') panel.innerHTML = instructoresHtml();
+    else if (tab === 'cursos') panel.innerHTML = cursosHtml();
+    else if (tab === 'usuarios') panel.innerHTML = usuariosHtml();
+    else panel.innerHTML = comprasHtml();
+    conectarPanel();
+  }
+
+  /* ---------- Resumen ---------- */
+  function resumenHtml() {
+    const r = resumen || {};
+    const accesos = [
+      ['instructores', 'Instructores pendientes', r.instructores_pendientes || 0, 'Revisar evidencia profesional'],
+      ['cursos', 'Cursos pendientes', r.cursos_pendientes || 0, 'Aprobar o rechazar contenido']
+    ];
+    return `
+      <div class="stat-grid">
+        <div class="stat"><small>Usuarios</small><b>${r.usuarios || 0}</b><div class="stat-sub">${r.clientes || 0} clientes · ${r.instructores || 0} instructores</div></div>
+        <div class="stat"><small>Cursos</small><b>${r.cursos || 0}</b><div class="stat-sub">${r.cursos_aprobados || 0} publicados</div></div>
+        <div class="stat"><small>Por revisar</small><b>${(r.instructores_pendientes || 0) + (r.cursos_pendientes || 0)}</b><div class="stat-sub">instructores y cursos</div></div>
+        <div class="stat"><small>Compras</small><b>${r.compras || 0}</b><div class="stat-sub">registradas en la plataforma</div></div>
+      </div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-top:1rem">
+        ${accesos.map(([key, titulo, n, sub]) => `<button class="admin-card" type="button" data-tab="${key}" style="text-align:left;cursor:pointer">
+          <div class="spread"><h3 style="margin:0">${esc(titulo)}</h3><span class="badge ${n ? 'badge-warn' : 'badge-outline'}">${n}</span></div>
+          <p class="meta" style="margin:.35rem 0 0">${esc(sub)}</p>
+        </button>`).join('')}
+      </div>
+      <section class="panel" style="margin-top:1rem">
+        <h2>Cómo funciona la revisión</h2>
+        <div class="steps">
+          <div class="step"><div class="step-n">1</div><h3>Instructores</h3><p>Verifica la evidencia (GitHub, portafolio o credenciales). Sin verificación no pueden enviar cursos.</p></div>
+          <div class="step"><div class="step-n">2</div><h3>Cursos</h3><p>Comprueba temario, videos y descripción antes de aprobar. Un rechazo exige motivo.</p></div>
+          <div class="step"><div class="step-n">3</div><h3>Privacidad</h3><p>Los instructores ven métricas agregadas, nunca datos personales de compradores.</p></div>
+        </div>
+      </section>`;
+  }
+
+  /* ---------- Instructores ---------- */
+  function instructoresHtml() {
+    const lista = instructores;
+    return `
+      <div class="admin-toolbar">
+        <div>
+          <label for="filtroInstructor">Estado de verificación</label>
+          <select id="filtroInstructor">
+            ${[['pendiente', 'Pendientes'], ['rechazado', 'Rechazados'], ['verificado', 'Verificados'], ['', 'Todos']].map(([v, l]) => `<option value="${v}" ${filtroInstructor === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-ghost" id="recargarInstructores" type="button">Actualizar</button>
+      </div>
+      <div class="admin-list">
+        ${lista.length ? lista.map(i => `
+          <article class="admin-card">
+            <div class="spread">
+              <div><h3>${esc(i.nombre_completo || (i.nombre + ' ' + i.apellidos))}</h3>
+                <div class="meta">${esc(i.email)} · ${esc(i.pais || '—')} · ${i.anios_experiencia} años de experiencia · ${i.cursos} curso${i.cursos === 1 ? '' : 's'}</div>
+              </div>
+              <div class="row">${statusBadge(i.estado_verificacion)}${i.estado_cuenta !== 'activo' ? statusBadge(i.estado_cuenta) : ''}</div>
+            </div>
+            <p class="bio"><b>${esc(i.titular || 'Sin titular')}</b><br>${esc(i.especialidad || '')}</p>
+            <p class="bio" style="margin-top:0">${esc(i.biografia || '')}</p>
+            <div class="evidence">
+              ${i.github_url ? `<a href="${esc(i.github_url)}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>` : ''}
+              ${i.portafolio_url ? `<a href="${esc(i.portafolio_url)}" target="_blank" rel="noopener noreferrer">Portafolio ↗</a>` : ''}
+              ${i.linkedin_url ? `<a href="${esc(i.linkedin_url)}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>` : ''}
+              ${i.credenciales ? `<span title="${esc(i.credenciales)}">Credenciales: ${esc(i.credenciales.slice(0, 70))}${i.credenciales.length > 70 ? '…' : ''}</span>` : ''}
+            </div>
+            ${i.motivo_rechazo ? `<div class="alert err small" style="margin-top:.7rem"><b>Motivo del rechazo:</b> ${esc(i.motivo_rechazo)}</div>` : ''}
+            <div class="actions">
+              ${i.estado_verificacion !== 'verificado' ? `<button class="btn btn-ok btn-sm" type="button" data-verificar="${i.id}">Verificar instructor</button>` : ''}
+              ${i.estado_verificacion !== 'rechazado' && i.estado_verificacion !== 'verificado' ? `<button class="btn btn-danger btn-sm" type="button" data-rechazar-instructor="${i.id}">Rechazar</button>` : ''}
+              <span class="small muted">${i.verificado_en ? 'Revisado el ' + esc(formatDate(i.verificado_en)) : 'Sin revisar'}</span>
+            </div>
+          </article>`).join('') : `<div class="empty"><span class="empty-ico">🛡️</span><b>No hay instructores en este estado</b><small>Cambia el filtro para ver otros registros.</small></div>`}
+      </div>`;
+  }
+
+  /* ---------- Cursos ---------- */
+  function cursosHtml() {
+    return `
+      <div class="admin-toolbar">
+        <div>
+          <label for="filtroCurso">Estado del curso</label>
+          <select id="filtroCurso">
+            ${[['pendiente', 'En revisión'], ['rechazado', 'Rechazados'], ['borrador', 'Borradores'], ['aprobado', 'Publicados'], ['', 'Todos']].map(([v, l]) => `<option value="${v}" ${filtroCurso === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-ghost" id="recargarCursos" type="button">Actualizar</button>
+      </div>
+      <div class="admin-list">
+        ${cursos.length ? cursos.map(c => `
+          <article class="admin-card">
+            <div class="spread">
+              <div><h3>${esc(c.titulo)}</h3>
+                <div class="meta">${esc(c.categoria.nombre)} · ${esc(DS.levelLabel(c.nivel))} · ${c.lecciones} lecciones · ${esc(DS.formatDuration(c.duracion_seg))} · ${money(c.precio)}</div>
+              </div>
+              <div>${statusBadge(c.estado)}</div>
+            </div>
+            <p class="bio">${esc(c.resumen)}</p>
+            <div class="meta">Instructor: <b>${esc(c.instructor.nombre)}</b> · ${c.estudiantes} estudiante${c.estudiantes === 1 ? '' : 's'}${c.publicado_en ? ' · Publicado ' + esc(formatDate(c.publicado_en)) : ''}</div>
+            ${c.motivo_rechazo ? `<div class="alert err small" style="margin-top:.7rem"><b>Motivo del rechazo:</b> ${esc(c.motivo_rechazo)}</div>` : ''}
+            <div class="actions">
+              <a class="btn btn-ghost btn-sm" href="/curso.html?slug=${encodeURIComponent(c.slug)}" target="_blank" rel="noopener">Ver ficha</a>
+              ${c.estado === 'pendiente' ? `<button class="btn btn-ok btn-sm" type="button" data-aprobar-curso="${c.id}">Aprobar y publicar</button><button class="btn btn-danger btn-sm" type="button" data-rechazar-curso="${c.id}">Rechazar</button>` : ''}
+            </div>
+          </article>`).join('') : `<div class="empty"><span class="empty-ico">📚</span><b>No hay cursos en este estado</b><small>Cambia el filtro para revisar otros cursos.</small></div>`}
+      </div>`;
+  }
+
+  /* ---------- Usuarios ---------- */
+  function filasUsuarios() {
+    return usuarios.length ? usuarios.map(u => `<tr>
+      <td><b>${esc(u.nombre_completo || (u.nombre + ' ' + u.apellidos))}</b><br><small class="muted">${esc(u.email)}</small>${u.estado_verificacion ? `<br>${statusBadge(u.estado_verificacion)}` : ''}</td>
+      <td><span class="badge badge-outline">${esc(u.rol)}</span></td>
+      <td>${statusBadge(u.estado)}</td>
+      <td><small class="muted">${u.rol === 'instructor' ? u.cursos + ' cursos' : u.rol === 'cliente' ? u.cursos_inscritos + ' cursos' : '—'}</small></td>
+      <td><small class="muted">${esc(formatDate(u.creado))}</small></td>
+      <td>
+        ${u.id === user.id ? '<span class="small muted">Tu cuenta</span>' : `
+          <button class="btn btn-ghost btn-sm" type="button" data-editar-usuario="${u.id}">Editar</button>
+          <button class="btn btn-danger btn-sm" type="button" data-eliminar-usuario="${u.id}">Eliminar</button>`}
+      </td>
+    </tr>`).join('') : '<tr><td colspan="6"><div class="empty"><b>Sin usuarios</b><small>Prueba con otra búsqueda.</small></div></td></tr>';
+  }
+
+  function usuariosHtml() {
+    return `
+      <div class="admin-toolbar">
+        <div>
+          <label for="buscarUsuarios">Buscar</label>
+          <input id="buscarUsuarios" type="search" value="${esc(busquedaUsuarios)}" placeholder="Nombre o email…">
+        </div>
+        <div>
+          <label for="filtroRol">Rol</label>
+          <select id="filtroRol">
+            ${[['', 'Todos'], ['cliente', 'Clientes'], ['instructor', 'Instructores'], ['administrador', 'Administradores']].map(([v, l]) => `<option value="${v}" ${filtroRol === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-ghost" id="recargarUsuarios" type="button">Actualizar</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Actividad</th><th>Alta</th><th>Acciones</th></tr></thead>
+          <tbody id="usersBody">${filasUsuarios()}</tbody>
+        </table>
+      </div>`;
+  }
+
+  /* ---------- Compras ---------- */
+  function comprasHtml() {
+    return `
+      <div class="admin-toolbar">
+        <p class="hint" style="margin:0;flex:1">Vista exclusiva de administración. Los instructores no tienen acceso a los datos de compradores.</p>
+        <button class="btn btn-ghost" id="recargarCompras" type="button">Actualizar</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Compra</th><th>Cliente</th><th>Fecha</th><th>Cursos</th><th>Método</th><th>Total</th><th>Estado</th></tr></thead>
+          <tbody>
+            ${compras.length ? compras.map(c => `<tr>
+              <td>#${c.id}<br><small class="muted">${esc(c.referencia || '—')}</small></td>
+              <td><b>${esc(c.cliente)}</b><br><small class="muted">${esc(c.cliente_email)}</small></td>
+              <td><small class="muted">${esc(formatDate(c.creado))}</small></td>
+              <td>${c.items.map(i => `${esc(i.titulo)}<br><small class="muted">${esc(i.instructor)}</small>`).join('<hr class="divider" style="margin:.35rem 0">')}</td>
+              <td><small class="muted">${esc(c.metodo_pago || '—')}</small></td>
+              <td><b>${money(c.total)}</b></td>
+              <td>${statusBadge(c.estado)}</td>
+            </tr>`).join('') : '<tr><td colspan="7"><div class="empty"><b>Sin compras registradas</b><small>Las compras demo aparecen aquí cuando el seed está activo.</small></div></td></tr>'}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  /* ---------- Eventos del panel ---------- */
+  function conectarPanel() {
+    if ($('#filtroInstructor')) $('#filtroInstructor').onchange = e => { filtroInstructor = e.target.value; cargarInstructores(); };
+    if ($('#recargarInstructores')) $('#recargarInstructores').onclick = cargarInstructores;
+    if ($('#filtroCurso')) $('#filtroCurso').onchange = e => { filtroCurso = e.target.value; cargarCursos(); };
+    if ($('#recargarCursos')) $('#recargarCursos').onclick = cargarCursos;
+    if ($('#buscarUsuarios')) $('#buscarUsuarios').oninput = DS.debounce(e => { busquedaUsuarios = e.target.value.trim(); cargarUsuarios(); }, 300);
+    if ($('#filtroRol')) $('#filtroRol').onchange = e => { filtroRol = e.target.value; cargarUsuarios(); };
+    if ($('#recargarUsuarios')) $('#recargarUsuarios').onclick = cargarUsuarios;
+    if ($('#recargarCompras')) $('#recargarCompras').onclick = cargarCompras;
+  }
+
+  async function manejarAccion(e) {
+    const ver = e.target.closest('[data-verificar]');
+    if (ver) return accionVerificar(Number(ver.dataset.verificar), ver);
+    const rechI = e.target.closest('[data-rechazar-instructor]');
+    if (rechI) return accionRechazarInstructor(Number(rechI.dataset.rechazarInstructor), rechI);
+    const apro = e.target.closest('[data-aprobar-curso]');
+    if (apro) return accionAprobar(Number(apro.dataset.aprobarCurso), apro);
+    const rechC = e.target.closest('[data-rechazar-curso]');
+    if (rechC) return accionRechazarCurso(Number(rechC.dataset.rechazarCurso), rechC);
+    const editU = e.target.closest('[data-editar-usuario]');
+    if (editU) return editarUsuario(Number(editU.dataset.editarUsuario));
+    const delU = e.target.closest('[data-eliminar-usuario]');
+    if (delU) return eliminarUsuario(Number(delU.dataset.eliminarUsuario));
+  }
+
+  function pedirMotivo(titulo, label) {
+    return new Promise(resolve => {
+      let settled = false;
+      const finish = v => { if (!settled) { settled = true; resolve(v); } };
+      const box = openModal(`<div class="modal-head"><div><h2>${esc(titulo)}</h2></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button></div>
+        <form id="motivoForm">
+          <div class="modal-body"><label for="motivo">${esc(label)}</label><textarea id="motivo" required maxlength="1000" placeholder="Explica qué debe corregir…"></textarea></div>
+          <div class="modal-foot"><button class="btn btn-ghost" type="button" data-cancel>Cancelar</button><button class="btn btn-danger" type="submit">Confirmar rechazo</button></div>
+        </form>`, { onClose: () => finish(null) });
+      box.querySelector('#motivoForm').onsubmit = ev => {
+        ev.preventDefault();
+        const v = box.querySelector('#motivo').value.trim();
+        if (!v) return;
+        finish(v);
+        closeModal();
+      };
+      box.querySelector('[data-cancel]').onclick = () => { finish(null); closeModal(); };
+    });
+  }
+
+  async function accionVerificar(id, boton) {
+    boton.disabled = true;
+    try {
+      await api(`/api/admin/instructores/${id}/verificar`, { method: 'POST' });
+      toast('Instructor verificado');
+      await Promise.all([cargarInstructores(), cargarResumen()]);
+    } catch (e) { toast(e.message, 'err'); boton.disabled = false; }
+  }
+
+  async function accionRechazarInstructor(id, boton) {
+    const motivo = await pedirMotivo('Rechazar verificación', 'Motivo del rechazo');
+    if (!motivo) return;
+    boton.disabled = true;
+    try {
+      await api(`/api/admin/instructores/${id}/rechazar`, { method: 'POST', body: { motivo } });
+      toast('Verificación rechazada');
+      await Promise.all([cargarInstructores(), cargarResumen()]);
+    } catch (e) { toast(e.message, 'err'); boton.disabled = false; }
+  }
+
+  async function accionAprobar(id, boton) {
+    boton.disabled = true;
+    try {
+      await api(`/api/admin/cursos/${id}/aprobar`, { method: 'POST' });
+      toast('Curso aprobado y publicado');
+      await Promise.all([cargarCursos(), cargarResumen()]);
+    } catch (e) { toast(e.message, 'err'); boton.disabled = false; }
+  }
+
+  async function accionRechazarCurso(id, boton) {
+    const motivo = await pedirMotivo('Rechazar curso', 'Motivo para el instructor');
+    if (!motivo) return;
+    boton.disabled = true;
+    try {
+      await api(`/api/admin/cursos/${id}/rechazar`, { method: 'POST', body: { motivo } });
+      toast('Curso rechazado');
+      await Promise.all([cargarCursos(), cargarResumen()]);
+    } catch (e) { toast(e.message, 'err'); boton.disabled = false; }
+  }
+
+  function editarUsuario(id) {
+    const u = usuarios.find(x => x.id === id);
+    if (!u) return;
+    const box = openModal(`<div class="modal-head"><div><h2>Editar usuario</h2><p class="muted small" style="margin:.2rem 0 0">${esc(u.email)}</p></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button></div>
+      <form id="userForm">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div><label for="uNombre">Nombre</label><input id="uNombre" value="${esc(u.nombre)}" required></div>
+            <div><label for="uApellidos">Apellidos</label><input id="uApellidos" value="${esc(u.apellidos || '')}" required></div>
+            <div><label for="uRol">Rol</label><select id="uRol">
+              ${['cliente', 'instructor', 'administrador'].map(r => `<option value="${r}" ${u.rol === r ? 'selected' : ''}>${r}</option>`).join('')}
+            </select></div>
+            <div><label for="uEstado">Estado</label><select id="uEstado">
+              <option value="activo" ${u.estado === 'activo' ? 'selected' : ''}>Activo</option>
+              <option value="suspendido" ${u.estado === 'suspendido' ? 'selected' : ''}>Suspendido</option>
+            </select></div>
+          </div>
+          <p class="hint">Cambiar el rol no crea perfiles automáticamente. Un cliente solo puede pasar a instructor si ya tiene perfil profesional.</p>
+        </div>
+        <div class="modal-foot"><button class="btn btn-ghost" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Guardar</button></div>
+      </form>`);
+    box.querySelector('#userForm').onsubmit = async ev => {
+      ev.preventDefault();
+      const btn = box.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        await api('/api/admin/usuarios/' + id, { method: 'PUT', body: {
+          nombre: box.querySelector('#uNombre').value,
+          apellidos: box.querySelector('#uApellidos').value,
+          rol: box.querySelector('#uRol').value,
+          estado: box.querySelector('#uEstado').value
+        } });
+        closeModal();
+        toast('Usuario actualizado');
+        await Promise.all([cargarUsuarios(), cargarResumen()]);
+      } catch (e) { toast(e.message, 'err'); btn.disabled = false; }
+    };
+  }
+
+  async function eliminarUsuario(id) {
+    const u = usuarios.find(x => x.id === id);
+    if (!u) return;
+    if (!confirm(`¿Eliminar la cuenta de ${u.nombre_completo || u.email}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await api('/api/admin/usuarios/' + id, { method: 'DELETE' });
+      toast('Usuario eliminado');
+      await Promise.all([cargarUsuarios(), cargarResumen()]);
+    } catch (e) { toast(e.message, 'err'); }
+  }
+
+  /* ---------- Carga ---------- */
+  async function cargarResumen() {
+    resumen = await api('/api/admin/resumen');
+    if (tab === 'resumen') pintar();
+  }
+  async function cargarInstructores() {
+    instructores = await api('/api/admin/instructores' + (filtroInstructor ? '?estado=' + encodeURIComponent(filtroInstructor) : ''));
+    if (tab === 'instructores') pintar();
+  }
+  async function cargarCursos() {
+    cursos = await api('/api/admin/cursos' + (filtroCurso ? '?estado=' + encodeURIComponent(filtroCurso) : ''));
+    if (tab === 'cursos') pintar();
+  }
+  async function cargarUsuarios() {
+    const q = new URLSearchParams();
+    if (busquedaUsuarios) q.set('q', busquedaUsuarios);
+    if (filtroRol) q.set('rol', filtroRol);
+    usuarios = await api('/api/admin/usuarios' + (q.toString() ? '?' + q : ''));
+    if (tab !== 'usuarios') return;
+    const body = $('#usersBody');
+    if (body) body.innerHTML = filasUsuarios();
+    else pintar();
+  }
+  async function cargarCompras() {
+    compras = await api('/api/admin/compras');
+    if (tab === 'compras') pintar();
+  }
+
+  tab = TABS.some(t => t.key === location.hash.slice(1)) ? location.hash.slice(1) : 'resumen';
+
+  try {
+    resumen = await api('/api/admin/resumen');
+    [instructores, cursos, usuarios, compras] = await Promise.all([
+      api('/api/admin/instructores?estado=pendiente'),
+      api('/api/admin/cursos?estado=pendiente'),
+      api('/api/admin/usuarios'),
+      api('/api/admin/compras')
+    ]);
+    pintar();
+  } catch (e) {
+    root.innerHTML = `<div class="empty" style="margin:2rem 0"><span class="empty-ico">⚠️</span><b>No se pudo cargar la administración</b><small>${esc(e.message)}</small></div>`;
+  }
+})();
+</script>
+</body>
+</html>

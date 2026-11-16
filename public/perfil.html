@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mi perfil · DevStore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div id="hdr"></div>
+<main id="main">
+  <div class="container">
+    <div id="profileRoot" class="dash-layout">
+      <div class="skeleton" style="height:260px"></div>
+      <div class="skeleton" style="height:600px"></div>
+    </div>
+  </div>
+</main>
+<footer class="footer"><div class="container footer-in"><div><b>DevStore</b> · Aprende desarrollo de software con proyectos reales.</div><div class="footer-links"><a href="/cursos.html">Cursos</a><a href="/">Inicio</a></div></div></footer>
+
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const { $, $$, esc, api, money, toast, statusBadge, formatDate, initials, courseCard } = DS;
+  const user = await DS.requireAuth();
+  if (!user) return;
+  await DS.mountHeader('perfil');
+  const root = $('#profileRoot');
+  const perfil = user.perfil || {};
+  const esCliente = user.rol === 'cliente';
+  const esInstructor = user.rol === 'instructor';
+  const verif = esInstructor ? (perfil.estado_verificacion || 'pendiente') : null;
+
+  const seccionesNav = [
+    ['#perfil', 'Datos personales'],
+    ...(esCliente ? [['#mis-cursos', 'Mis cursos'], ['#mis-compras', 'Mis compras']] : []),
+    ...(esInstructor ? [['/instructor.html', 'Panel instructor']] : []),
+    ...(user.rol === 'administrador' ? [['/admin.html', 'Administración']] : [])
+  ];
+
+  function bloqueVerificacion() {
+    if (!esInstructor) return '';
+    const motivos = verif === 'verificado'
+      ? ['ok', 'Cuenta verificada', 'Tu perfil está aprobado y puedes publicar cursos.']
+      : verif === 'rechazado'
+        ? ['err', 'Verificación rechazada', perfil.motivo_rechazo || 'Revisa tu evidencia y vuelve a enviar la solicitud.']
+        : ['warn', 'Verificación pendiente', 'Podrás preparar borradores, pero no publicar cursos hasta que el equipo apruebe tu perfil.'];
+    return `<section class="verification-card"><div class="spread"><div><h3>${motivos[1]}</h3><p>${esc(motivos[2])}</p></div>${statusBadge(verif)}</div>
+      ${verif === 'rechazado' ? '<div class="form-actions"><button class="btn btn-soft btn-sm" id="resubmitBtn" type="button">Reenviar solicitud</button></div>' : ''}
+    </section>`;
+  }
+
+  function camposPerfil() {
+    if (esCliente) return `
+      <div class="form-grid">
+        <div><label for="telefono">Teléfono</label><input id="telefono" type="tel" value="${esc(perfil.telefono || '')}" required></div>
+        <div><label for="pais">País</label><input id="pais" value="${esc(perfil.pais || '')}" required></div>
+        <div><label for="ciudad">Ciudad</label><input id="ciudad" value="${esc(perfil.ciudad || '')}"></div>
+        <div><label for="nivel">Nivel de experiencia</label><select id="nivel">
+          <option value="principiante" ${perfil.nivel_experiencia === 'principiante' ? 'selected' : ''}>Principiante</option>
+          <option value="intermedio" ${perfil.nivel_experiencia === 'intermedio' ? 'selected' : ''}>Intermedio</option>
+          <option value="avanzado" ${perfil.nivel_experiencia === 'avanzado' ? 'selected' : ''}>Avanzado</option>
+        </select></div>
+        <div class="full"><label>Áreas de interés</label><div class="interest-grid" id="intereses"><span class="muted small">Cargando…</span></div></div>
+      </div>`;
+    if (esInstructor) return `
+      <div class="form-grid">
+        <div class="full"><label for="titular">Titular profesional</label><input id="titular" value="${esc(perfil.titular || '')}" required></div>
+        <div><label for="especialidad">Especialidad</label><input id="especialidad" value="${esc(perfil.especialidad || '')}" required></div>
+        <div><label for="anios">Años de experiencia</label><input id="anios" type="number" min="0" max="70" value="${esc(perfil.anios_experiencia ?? 0)}" required></div>
+        <div><label for="pais">País</label><input id="pais" value="${esc(perfil.pais || '')}" required></div>
+        <div><label for="telefono">Teléfono</label><input id="telefono" type="tel" value="${esc(perfil.telefono || '')}"></div>
+        <div class="full"><label for="biografia">Biografía</label><textarea id="biografia" required>${esc(perfil.biografia || '')}</textarea></div>
+        <div><label for="github">GitHub</label><input id="github" type="url" value="${esc(perfil.github_url || '')}"></div>
+        <div><label for="portafolio">Portafolio</label><input id="portafolio" type="url" value="${esc(perfil.portafolio_url || '')}"></div>
+        <div class="full"><label for="linkedin">LinkedIn</label><input id="linkedin" type="url" value="${esc(perfil.linkedin_url || '')}"></div>
+        <div class="full"><label for="credenciales">Credenciales y experiencia</label><textarea id="credenciales">${esc(perfil.credenciales || '')}</textarea></div>
+      </div>`;
+    return '<p class="muted">Esta cuenta administrativa no tiene perfil público adicional.</p>';
+  }
+
+  root.innerHTML = `
+    <aside class="side-nav">
+      <div class="side-user"><span class="avatar">${esc(initials(user.nombre + ' ' + (user.apellidos || '')))}</span><div><b>${esc(user.nombre)} ${esc(user.apellidos || '')}</b><small>${esc(user.rol)}</small></div></div>
+      ${seccionesNav.map(([href, label], i) => `<a href="${href}" class="${i === 0 ? 'on' : ''}">${esc(label)}</a>`).join('')}
+    </aside>
+
+    <div class="dash-main">
+      <div class="page-title"><div><h1>Mi perfil</h1><p>Gestiona tus datos, tu seguridad y tu actividad en DevStore.</p></div></div>
+      ${bloqueVerificacion()}
+
+      <section class="panel" id="perfil">
+        <h2>Datos personales</h2>
+        <form id="perfilForm" novalidate>
+          <div class="form-grid">
+            <div><label for="nombre">Nombre</label><input id="nombre" value="${esc(user.nombre)}" autocomplete="given-name" required></div>
+            <div><label for="apellidos">Apellidos</label><input id="apellidos" value="${esc(user.apellidos || '')}" autocomplete="family-name" required></div>
+            <div class="full"><label for="email">Email</label><input id="email" type="email" value="${esc(user.email)}" autocomplete="email" required></div>
+          </div>
+          ${camposPerfil()}
+          <hr class="divider">
+          <h3>Cambiar contraseña <span class="muted small">(opcional)</span></h3>
+          <div class="form-grid-3">
+            <div><label for="pActual">Contraseña actual</label><input id="pActual" type="password" autocomplete="current-password"></div>
+            <div><label for="pNueva">Nueva contraseña</label><input id="pNueva" type="password" autocomplete="new-password" minlength="8"></div>
+            <div><label for="pConfirmar">Repetir nueva contraseña</label><input id="pConfirmar" type="password" autocomplete="new-password"></div>
+          </div>
+          <p class="hint">Si no quieres cambiar la contraseña, deja los tres campos vacíos.</p>
+          <div id="perfilError" class="alert err hide" role="alert"></div>
+          <div class="form-actions"><button class="btn btn-primary" type="submit">Guardar cambios</button></div>
+        </form>
+      </section>
+
+      ${esCliente ? `
+      <section class="panel" id="mis-cursos">
+        <div class="spread"><div><h2 style="margin:0">Mis cursos</h2><p class="muted small" style="margin:.2rem 0 0">Cursos en los que estás inscrito.</p></div><a class="btn btn-ghost btn-sm" href="/cursos.html">Explorar más</a></div>
+        <div id="misCursos" class="grid course-grid" style="margin-top:1rem"><div class="skeleton" style="min-height:220px"></div><div class="skeleton" style="min-height:220px"></div></div>
+      </section>
+      <section class="panel" id="mis-compras">
+        <h2>Mis compras</h2>
+        <div id="misCompras" class="table-wrap"><div class="skeleton" style="height:100px"></div></div>
+      </section>` : esInstructor ? `
+      <section class="panel">
+        <div class="spread"><div><h2 style="margin:0">Panel de instructor</h2><p class="muted small" style="margin:.2rem 0 0">Gestiona tus cursos, secciones y videos.</p></div><a class="btn btn-primary" href="/instructor.html">Ir al panel</a></div>
+      </section>` : ''}
+    </div>`;
+
+  // Intereses del cliente
+  if (esCliente) {
+    try {
+      const cats = await api('/api/categorias');
+      const activos = Array.isArray(perfil.areas_interes) ? perfil.areas_interes : [];
+      $('#intereses').innerHTML = cats.map(c => `<label class="check"><input type="checkbox" value="${esc(c.slug)}" ${activos.includes(c.slug) ? 'checked' : ''}><span>${esc(c.icono || '')} ${esc(c.nombre)}</span></label>`).join('');
+    } catch { $('#intereses').innerHTML = '<span class="muted small">No se pudieron cargar las áreas.</span>'; }
+  }
+
+  // Reenviar verificación
+  if ($('#resubmitBtn')) $('#resubmitBtn').onclick = async () => {
+    try { await api('/api/perfil/instructor/verificacion', { method: 'POST' }); toast('Solicitud reenviada a revisión'); setTimeout(() => location.reload(), 500); }
+    catch (e) { toast(e.message, 'err'); }
+  };
+
+  // Guardar perfil
+  $('#perfilForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = $('#perfilError');
+    err.classList.add('hide');
+    const body = {
+      nombre: $('#nombre').value, apellidos: $('#apellidos').value, email: $('#email').value
+    };
+    if (esCliente) {
+      const areas = $$('#intereses input:checked').map(i => i.value);
+      if (!areas.length) { err.textContent = 'Selecciona al menos un área de interés.'; err.classList.remove('hide'); return; }
+      Object.assign(body, { telefono: $('#telefono').value, pais: $('#pais').value, ciudad: $('#ciudad').value, nivel_experiencia: $('#nivel').value, areas_interes: areas });
+    }
+    if (esInstructor) {
+      Object.assign(body, {
+        titular: $('#titular').value, especialidad: $('#especialidad').value, anios_experiencia: Number($('#anios').value),
+        pais: $('#pais').value, telefono: $('#telefono').value, biografia: $('#biografia').value,
+        github_url: $('#github').value, portafolio_url: $('#portafolio').value, linkedin_url: $('#linkedin').value,
+        credenciales: $('#credenciales').value
+      });
+    }
+    const pNueva = $('#pNueva').value;
+    if (pNueva) {
+      if (pNueva !== $('#pConfirmar').value) { err.textContent = 'Las contraseñas nuevas no coinciden.'; err.classList.remove('hide'); return; }
+      body.password = pNueva;
+      body.password_actual = $('#pActual').value;
+    }
+    const btn = e.currentTarget.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try {
+      await api('/api/perfil', { method: 'PUT', body });
+      toast('Perfil actualizado');
+      await DS.me(true);
+      setTimeout(() => location.reload(), 450);
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.remove('hide');
+    } finally { btn.disabled = false; }
+  });
+
+  // Cursos y compras del cliente
+  if (esCliente) {
+    try {
+      const cursos = await api('/api/mis-cursos');
+      $('#misCursos').innerHTML = cursos.length ? cursos.map(courseCard).join('') : '<div class="empty" style="grid-column:1/-1"><span class="empty-ico">🎓</span><b>Aún no tienes cursos</b><small>Explora el catálogo y descubre tu próximo paso.</small></div>';
+    } catch (e) { $('#misCursos').innerHTML = `<div class="empty" style="grid-column:1/-1"><b>No se pudieron cargar tus cursos</b><small>${esc(e.message)}</small></div>`; }
+    try {
+      const compras = await api('/api/mis-compras');
+      $('#misCompras').innerHTML = compras.length ? `<table><thead><tr><th>Compra</th><th>Fecha</th><th>Cursos</th><th>Método</th><th>Total</th><th>Estado</th></tr></thead><tbody>
+        ${compras.map(c => `<tr><td>#${c.id}<br><small class="muted">${esc(c.referencia || '')}</small></td><td>${esc(formatDate(c.creado))}</td><td>${c.items.map(i => esc(i.titulo)).join('<br>')}</td><td>${esc(c.metodo_pago || '—')}</td><td>${money(c.total)}</td><td>${statusBadge(c.estado)}</td></tr>`).join('')}
+      </tbody></table>` : '<div class="empty"><b>Sin compras registradas</b><small>Las compras aparecerán aquí cuando se active el flujo de pago.</small></div>';
+    } catch (e) { $('#misCompras').innerHTML = `<div class="empty"><b>No se pudieron cargar tus compras</b><small>${esc(e.message)}</small></div>`; }
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Editor de curso · DevStore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div id="hdr"></div>
+<main id="main">
+  <div class="container editor-wrap" id="editorRoot">
+    <div class="skeleton" style="height:500px"></div>
+  </div>
+</main>
+<footer class="footer"><div class="container footer-in"><div><b>DevStore</b> · Editor de cursos.</div><div class="footer-links"><a href="/instructor.html">Panel instructor</a><a href="/perfil.html">Mi perfil</a></div></div></footer>
+
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const { $, esc, api, toast, statusBadge, formatDuration, openModal, closeModal, uploadVideo, params } = DS;
+  const user = await DS.requireAuth(['instructor']);
+  if (!user) return;
+  await DS.mountHeader('instructor');
+  const root = $('#editorRoot');
+  const id = Number(params().get('id'));
+  if (!id) { location.href = '/instructor.html'; return; }
+
+  let curso = null;
+  let categorias = [];
+  let resumen = null;
+
+  const TIPO = { youtube: 'YouTube', archivo: 'Archivo local' };
+
+  try {
+    [curso, categorias, resumen] = await Promise.all([
+      api('/api/instructor/cursos/' + id),
+      api('/api/categorias'),
+      api('/api/instructor/resumen')
+    ]);
+  } catch (e) {
+    root.innerHTML = `<div class="empty" style="margin:3rem 0"><span class="empty-ico">⚠️</span><b>No se pudo abrir el curso</b><small>${esc(e.message)}</small><p style="margin-top:1rem"><a class="btn btn-ghost" href="/instructor.html">Volver al panel</a></p></div>`;
+    return;
+  }
+
+  const estaVerificado = resumen?.verificacion?.estado_verificacion === 'verificado';
+
+  function render() {
+    const catOpts = categorias.map(c => `<option value="${c.id}" ${Number(curso.categoria_id) === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('');
+    root.innerHTML = `
+      <div class="editor-head">
+        <div>
+          <a class="back" href="/instructor.html">← Volver al panel</a>
+          <h1 id="editorTitle" style="margin:.35rem 0 .3rem">${esc(curso.titulo)}</h1>
+          <div class="row"><span id="editorStatus">${statusBadge(curso.estado)}</span><span class="muted small">${esc(curso.categoria.nombre)} · ${esc(DS.levelLabel(curso.nivel))}</span></div>
+        </div>
+        <div class="row">
+          <a class="btn btn-ghost btn-sm hide" id="previewLink" href="#" target="_blank" rel="noopener">Ver público</a>
+          <button class="btn btn-ghost" id="saveTop" type="button">Guardar</button>
+          <button class="btn btn-primary" id="submitTop" type="button">Enviar a revisión</button>
+        </div>
+      </div>
+
+      ${!estaVerificado ? `<div class="alert warn"><b>Verificación pendiente.</b> Puedes completar el curso, pero el envío a revisión se habilitará cuando tu cuenta de instructor sea verificada. <a href="/perfil.html">Revisar solicitud</a></div>` : ''}
+      ${curso.estado === 'rechazado' && curso.motivo_rechazo ? `<div class="alert err"><b>Curso rechazado:</b> ${esc(curso.motivo_rechazo)}. Corrige el contenido y vuelve a enviarlo.</div>` : ''}
+
+      <div class="editor-grid">
+        <div class="editor-main">
+          <section class="panel">
+            <h2>Información del curso</h2>
+            <form id="metaForm" novalidate>
+              <div class="form-grid">
+                <div class="full"><label for="fTitulo">Título <span class="req">*</span></label><input id="fTitulo" value="${esc(curso.titulo)}" minlength="5" maxlength="140" required></div>
+                <div><label for="fCategoria">Área <span class="req">*</span></label><select id="fCategoria" required>${catOpts}</select></div>
+                <div><label for="fNivel">Nivel <span class="req">*</span></label><select id="fNivel" required>
+                  <option value="principiante" ${curso.nivel === 'principiante' ? 'selected' : ''}>Principiante</option>
+                  <option value="intermedio" ${curso.nivel === 'intermedio' ? 'selected' : ''}>Intermedio</option>
+                  <option value="avanzado" ${curso.nivel === 'avanzado' ? 'selected' : ''}>Avanzado</option>
+                </select></div>
+                <div><label for="fPrecio">Precio (Bs) <span class="req">*</span></label><input id="fPrecio" type="number" min="0" max="10000" step="0.01" value="${Number(curso.precio)}" required></div>
+                <div><label for="fIdioma">Idioma <span class="req">*</span></label><input id="fIdioma" value="${esc(curso.idioma)}" required></div>
+                <div class="full"><label for="fImagen">Imagen de portada (URL opcional)</label><input id="fImagen" type="url" value="${esc(curso.imagen_url || '')}" placeholder="https://…"></div>
+                <div class="full"><label for="fResumen">Resumen <span class="req">*</span></label><textarea id="fResumen" maxlength="300" required>${esc(curso.resumen)}</textarea><p class="hint">Entre 15 y 300 caracteres. Es lo que se ve en el catálogo.</p></div>
+                <div class="full"><label for="fDescripcion">Descripción completa <span class="req">*</span></label><textarea id="fDescripcion" style="min-height:170px" required>${esc(curso.descripcion)}</textarea><p class="hint">Explica objetivos, a quién va dirigido y qué proyecto final se construye.</p></div>
+              </div>
+              <div class="form-actions"><button class="btn btn-primary" type="submit">Guardar información</button></div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="spread"><div><h2 style="margin:0">Temario</h2><p class="muted small" style="margin:.2rem 0 0">Organiza el contenido en secciones y lecciones. Puedes reordenarlo con las flechas.</p></div><button class="btn btn-soft btn-sm" id="addSectionBtn" type="button">+ Añadir sección</button></div>
+            <div id="sections" style="margin-top:1rem"></div>
+          </section>
+        </div>
+
+        <aside class="editor-side">
+          <section class="panel">
+            <h3>Estado de publicación</h3>
+            <div class="spread" style="margin:.5rem 0"><span class="muted small">Curso</span><span id="sideStatus">${statusBadge(curso.estado)}</span></div>
+            <div class="spread" style="margin:.5rem 0"><span class="muted small">Verificación</span>${statusBadge(resumen?.verificacion?.estado_verificacion || 'pendiente')}</div>
+            <hr class="divider">
+            <h3>Checklist</h3>
+            <div class="stack" style="gap:.45rem;font-size:.82rem">
+              <div class="spread"><span>Secciones</span><b id="checkSections">—</b></div>
+              <div class="spread"><span>Lecciones</span><b id="checkLessons">—</b></div>
+              <div class="spread"><span>Con video</span><b id="checkVideos">—</b></div>
+            </div>
+            <div class="form-actions" style="flex-direction:column;align-items:stretch">
+              <button class="btn btn-ghost btn-sm" id="saveSide" type="button">Guardar información</button>
+              <button class="btn btn-primary btn-sm" id="submitSide" type="button">Enviar a revisión</button>
+            </div>
+          </section>
+          <section class="panel">
+            <h3>Buenas prácticas</h3>
+            <ul class="auth-points small" style="margin:0">
+              <li><span class="dot">✓</span><span>Una sección por bloque temático y lecciones de 5–20 min.</span></li>
+              <li><span class="dot">✓</span><span>Marca como vista previa la primera lección para captar estudiantes.</span></li>
+              <li><span class="dot">✓</span><span>Los videos locales se sirven protegidos y solo a quien tiene acceso.</span></li>
+            </ul>
+          </section>
+        </aside>
+      </div>`;
+
+    pintarSecciones();
+    actualizarChecklist();
+    actualizarCabecera();
+    $('#addSectionBtn').onclick = agregarSeccion;
+    $('#metaForm').addEventListener('submit', e => { e.preventDefault(); guardarMeta(); });
+    $('#saveTop').onclick = guardarMeta;
+    $('#saveSide').onclick = guardarMeta;
+    $('#submitTop').onclick = enviarRevision;
+    $('#submitSide').onclick = enviarRevision;
+    $('#sections').onclick = manejarTemario;
+  }
+
+  function actualizarCabecera() {
+    const t = $('#editorTitle');
+    if (t) t.textContent = curso.titulo;
+    if ($('#editorStatus')) $('#editorStatus').innerHTML = statusBadge(curso.estado);
+    if ($('#sideStatus')) $('#sideStatus').innerHTML = statusBadge(curso.estado);
+    const link = $('#previewLink');
+    if (link) {
+      link.classList.toggle('hide', curso.estado !== 'aprobado');
+      link.href = `/curso.html?slug=${encodeURIComponent(curso.slug)}`;
+    }
+    const habilitado = estaVerificado && curso.estado !== 'pendiente' && curso.secciones.length > 0 &&
+      curso.secciones.some(s => s.lecciones.length) && !curso.secciones.some(s => s.lecciones.some(l => !l.tipo_video));
+    ['submitTop', 'submitSide'].forEach(k => { const b = $(k); if (b) { b.disabled = !habilitado; b.title = habilitado ? '' : 'Completa los requisitos y verifica tu cuenta para enviar a revisión'; } });
+  }
+
+  function actualizarChecklist() {
+    const secciones = curso.secciones.length;
+    const lecciones = curso.secciones.reduce((a, s) => a + s.lecciones.length, 0);
+    const conVideo = curso.secciones.reduce((a, s) => a + s.lecciones.filter(l => l.tipo_video).length, 0);
+    if ($('#checkSections')) $('#checkSections').textContent = secciones;
+    if ($('#checkLessons')) $('#checkLessons').textContent = lecciones;
+    if ($('#checkVideos')) $('#checkVideos').textContent = `${conVideo}/${lecciones}`;
+    actualizarCabecera();
+  }
+
+  function pintarSecciones() {
+    const box = $('#sections');
+    if (!box) return;
+    box.innerHTML = curso.secciones.length ? curso.secciones.map((s, si) => `
+      <div class="section-block">
+        <div class="section-block-head">
+          <span class="badge badge-outline">${String(si + 1).padStart(2, '0')}</span>
+          <b>${esc(s.titulo)}</b>
+          <div class="icon-actions">
+            <button class="btn btn-ghost" type="button" data-act="up-section" data-id="${s.id}" ${si === 0 ? 'disabled' : ''} aria-label="Subir sección">↑</button>
+            <button class="btn btn-ghost" type="button" data-act="down-section" data-id="${s.id}" ${si === curso.secciones.length - 1 ? 'disabled' : ''} aria-label="Bajar sección">↓</button>
+            <button class="btn btn-ghost" type="button" data-act="rename-section" data-id="${s.id}">Renombrar</button>
+            <button class="btn btn-danger" type="button" data-act="del-section" data-id="${s.id}">Eliminar</button>
+          </div>
+        </div>
+        <div class="section-block-body">
+          ${s.lecciones.length ? s.lecciones.map((l, li) => `
+            <div class="lesson-item">
+              <span class="badge ${l.tipo_video ? 'badge-info' : 'badge-outline'}">${l.tipo_video === 'youtube' ? '▶ YouTube' : l.tipo_video === 'archivo' ? '📁 Archivo' : 'Sin video'}</span>
+              <div class="li-main"><b>${esc(l.titulo)}</b><small>${esc(formatDuration(l.duracion_seg))}${l.es_preview ? ' · Vista previa' : ''}</small></div>
+              <div class="icon-actions">
+                <button class="btn btn-ghost" type="button" data-act="up-lesson" data-id="${l.id}" data-sec="${s.id}" ${li === 0 ? 'disabled' : ''} aria-label="Subir lección">↑</button>
+                <button class="btn btn-ghost" type="button" data-act="down-lesson" data-id="${l.id}" data-sec="${s.id}" ${li === s.lecciones.length - 1 ? 'disabled' : ''} aria-label="Bajar lección">↓</button>
+                <button class="btn btn-soft" type="button" data-act="edit-lesson" data-id="${l.id}">Editar</button>
+                <button class="btn btn-danger" type="button" data-act="del-lesson" data-id="${l.id}">Eliminar</button>
+              </div>
+            </div>`).join('') : '<p class="muted small" style="margin:.2rem 0 .7rem">Aún no hay lecciones en esta sección.</p>'}
+          <button class="btn btn-ghost btn-sm" type="button" data-act="add-lesson" data-sec="${s.id}">+ Añadir lección</button>
+        </div>
+      </div>`).join('') : `<div class="empty"><span class="empty-ico">🧩</span><b>El temario está vacío</b><small>Añade una sección para empezar a organizar el curso.</small></div>`;
+  }
+
+  async function recargarCurso() {
+    curso = await api('/api/instructor/cursos/' + id);
+    pintarSecciones();
+    actualizarChecklist();
+    actualizarCabecera();
+  }
+
+  async function guardarMeta() {
+    const body = {
+      titulo: $('#fTitulo').value,
+      categoria_id: Number($('#fCategoria').value),
+      nivel: $('#fNivel').value,
+      precio: Number($('#fPrecio').value),
+      idioma: $('#fIdioma').value,
+      imagen_url: $('#fImagen').value,
+      resumen: $('#fResumen').value,
+      descripcion: $('#fDescripcion').value
+    };
+    const estadoAnterior = curso.estado;
+    try {
+      const r = await api('/api/instructor/cursos/' + id, { method: 'PUT', body });
+      await recargarCurso();
+      if (r.estado === 'pendiente' && estadoAnterior !== 'pendiente') toast('Guardado. El curso volverá a revisión.');
+      else toast('Información guardada');
+    } catch (e) { toast(e.message, 'err'); }
+  }
+
+  async function enviarRevision() {
+    try {
+      await api(`/api/instructor/cursos/${id}/enviar-revision`, { method: 'POST' });
+      await recargarCurso();
+      toast('Curso enviado a revisión');
+    } catch (e) { toast(e.message, 'err'); }
+  }
+
+  function pedirTexto({ titulo, label, value = '', placeholder = '' }) {
+    return new Promise(resolve => {
+      let settled = false;
+      const finish = v => { if (!settled) { settled = true; resolve(v); } };
+      const box = openModal(`<div class="modal-head"><div><h2>${esc(titulo)}</h2></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button></div>
+        <form id="textForm">
+          <div class="modal-body"><label for="textValue">${esc(label)}</label><input id="textValue" value="${esc(value)}" placeholder="${esc(placeholder)}" required></div>
+          <div class="modal-foot"><button class="btn btn-ghost" type="button" data-cancel>Cancelar</button><button class="btn btn-primary" type="submit">Guardar</button></div>
+        </form>`, { onClose: () => finish(null) });
+      const form = box.querySelector('#textForm');
+      form.onsubmit = e => {
+        e.preventDefault();
+        const v = box.querySelector('#textValue').value.trim();
+        if (!v) return;
+        finish(v);
+        closeModal();
+      };
+      box.querySelector('[data-cancel]').onclick = () => { finish(null); closeModal(); };
+    });
+  }
+
+  async function agregarSeccion() {
+    const titulo = await pedirTexto({ titulo: 'Nueva sección', label: 'Título de la sección', placeholder: 'Ej. Fundamentos de la API' });
+    if (!titulo) return;
+    try { await api(`/api/instructor/cursos/${id}/secciones`, { method: 'POST', body: { titulo } }); await recargarCurso(); toast('Sección añadida'); }
+    catch (e) { toast(e.message, 'err'); }
+  }
+
+  async function manejarTemario(e) {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const act = b.dataset.act, lid = Number(b.dataset.id), sec = Number(b.dataset.sec);
+    try {
+      if (act === 'add-lesson') return abrirLeccion(sec, null);
+      if (act === 'edit-lesson') {
+        const leccion = curso.secciones.flatMap(s => s.lecciones).find(l => l.id === lid);
+        return abrirLeccion(sec, leccion);
+      }
+      if (act === 'rename-section') {
+        const s = curso.secciones.find(x => x.id === lid);
+        const titulo = await pedirTexto({ titulo: 'Renombrar sección', label: 'Título', value: s.titulo });
+        if (!titulo) return;
+        await api('/api/instructor/secciones/' + lid, { method: 'PUT', body: { titulo } });
+        await recargarCurso(); return;
+      }
+      if (act === 'del-section') {
+        if (!confirm('¿Eliminar la sección y todas sus lecciones?')) return;
+        await api('/api/instructor/secciones/' + lid, { method: 'DELETE' });
+        await recargarCurso(); toast('Sección eliminada'); return;
+      }
+      if (act === 'del-lesson') {
+        if (!confirm('¿Eliminar esta lección?')) return;
+        await api('/api/instructor/lecciones/' + lid, { method: 'DELETE' });
+        await recargarCurso(); toast('Lección eliminada'); return;
+      }
+      if (act === 'up-section' || act === 'down-section') {
+        const ids = curso.secciones.map(s => s.id);
+        const i = ids.indexOf(lid), j = i + (act === 'up-section' ? -1 : 1);
+        if (j < 0 || j >= ids.length) return;
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+        await api(`/api/instructor/cursos/${id}/secciones/orden`, { method: 'PUT', body: { ids } });
+        await recargarCurso(); return;
+      }
+      if (act === 'up-lesson' || act === 'down-lesson') {
+        const s = curso.secciones.find(x => x.id === sec);
+        const ids = s.lecciones.map(l => l.id);
+        const i = ids.indexOf(lid), j = i + (act === 'up-lesson' ? -1 : 1);
+        if (j < 0 || j >= ids.length) return;
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+        await api(`/api/instructor/secciones/${sec}/lecciones/orden`, { method: 'PUT', body: { ids } });
+        await recargarCurso(); return;
+      }
+    } catch (ex) { toast(ex.message, 'err'); }
+  }
+
+  function abrirLeccion(seccionId, leccion) {
+    const esNueva = !leccion;
+    const tipo = leccion?.tipo_video || '';
+    const box = openModal(`<div class="modal-head"><div><h2>${esNueva ? 'Añadir lección' : 'Editar lección'}</h2><p class="muted small" style="margin:.2rem 0 0">Los videos de YouTube se incrustan; los archivos locales se sirven de forma protegida.</p></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button></div>
+      <form id="lessonForm">
+        <div class="modal-body">
+          <div id="lessonError" class="alert err hide"></div>
+          <label for="lTitulo">Título <span class="req">*</span></label>
+          <input id="lTitulo" value="${esc(leccion?.titulo || '')}" required maxlength="160">
+          <label for="lDesc">Descripción</label>
+          <textarea id="lDesc">${esc(leccion?.descripcion || '')}</textarea>
+          <div class="form-grid-3">
+            <div><label for="lDur">Duración (min)</label><input id="lDur" type="number" min="0" max="1440" value="${leccion?.duracion_seg ? Math.round(leccion.duracion_seg / 60) : ''}"></div>
+            <div><label for="lTipo">Video</label><select id="lTipo">
+              <option value="" ${tipo === '' ? 'selected' : ''}>Sin video (borrador)</option>
+              <option value="youtube" ${tipo === 'youtube' ? 'selected' : ''}>YouTube</option>
+              <option value="archivo" ${tipo === 'archivo' ? 'selected' : ''}>Archivo local</option>
+            </select></div>
+            <div><label>Vista previa</label><label class="check" style="margin-top:.55rem"><input id="lPreview" type="checkbox" ${leccion?.es_preview ? 'checked' : ''}><span>Lección gratuita</span></label></div>
+          </div>
+          <div id="ytGroup" class="${tipo === 'youtube' ? '' : 'hide'}">
+            <label for="lYoutube">URL de YouTube <span class="req">*</span></label>
+            <input id="lYoutube" type="url" value="${esc(leccion?.youtube_url || '')}" placeholder="https://www.youtube.com/watch?v=…">
+          </div>
+          <div id="fileGroup" class="${tipo === 'archivo' ? '' : 'hide'}">
+            <label for="lFile">Archivo de video ${leccion?.archivo_nombre ? '(reemplazar)' : ''}</label>
+            <input id="lFile" type="file" accept="video/mp4,video/webm">
+            <p class="hint">${leccion?.archivo_nombre ? `Archivo actual: <b>${esc(leccion.archivo_nombre)}</b>. ` : ''}MP4 o WebM. Máximo 200 MB.</p>
+          </div>
+          <progress id="lProgress" max="100" value="0" class="hide" style="width:100%;margin-top:.7rem"></progress>
+          <p id="lUpload" class="hint"></p>
+        </div>
+        <div class="modal-foot"><button class="btn btn-ghost" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">${esNueva ? 'Añadir lección' : 'Guardar cambios'}</button></div>
+      </form>`, { large: true });
+
+    const tipoSel = box.querySelector('#lTipo');
+    const toggle = () => {
+      box.querySelector('#ytGroup').classList.toggle('hide', tipoSel.value !== 'youtube');
+      box.querySelector('#fileGroup').classList.toggle('hide', tipoSel.value !== 'archivo');
+    };
+    tipoSel.onchange = toggle;
+    toggle();
+
+    box.querySelector('#lessonForm').onsubmit = async e => {
+      e.preventDefault();
+      const err = box.querySelector('#lessonError');
+      err.classList.add('hide');
+      const tipoActual = tipoSel.value;
+      const file = box.querySelector('#lFile').files[0];
+      const durMin = box.querySelector('#lDur').value;
+      const body = {
+        titulo: box.querySelector('#lTitulo').value,
+        descripcion: box.querySelector('#lDesc').value,
+        duracion_seg: durMin === '' ? null : Math.round(Number(durMin) * 60),
+        es_preview: box.querySelector('#lPreview').checked
+      };
+      if (tipoActual === 'youtube') {
+        const yt = box.querySelector('#lYoutube').value.trim();
+        if (!yt) { err.textContent = 'Indica la URL del video de YouTube.'; err.classList.remove('hide'); return; }
+        body.tipo_video = 'youtube';
+        body.youtube_url = yt;
+      } else if (tipoActual === 'archivo') {
+        if (!file && (!leccion || leccion.tipo_video !== 'archivo')) {
+          err.textContent = 'Selecciona un archivo MP4 o WebM.'; err.classList.remove('hide'); return;
+        }
+        if (!file) body.tipo_video = 'archivo';
+      } else {
+        body.tipo_video = '';
+      }
+      const submit = box.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      try {
+        let lid;
+        if (esNueva) {
+          const r = await api(`/api/instructor/secciones/${seccionId}/lecciones`, { method: 'POST', body });
+          lid = r.id;
+        } else {
+          await api('/api/instructor/lecciones/' + leccion.id, { method: 'PUT', body });
+          lid = leccion.id;
+        }
+        if (file && tipoActual === 'archivo') {
+          const progress = box.querySelector('#lProgress');
+          const status = box.querySelector('#lUpload');
+          progress.classList.remove('hide');
+          status.textContent = 'Subiendo video…';
+          await uploadVideo(lid, file, pct => { progress.value = pct; status.textContent = `Subiendo video… ${pct}%`; });
+        }
+        closeModal();
+        await recargarCurso();
+        toast(esNueva ? 'Lección añadida' : 'Lección actualizada');
+      } catch (ex) {
+        err.textContent = ex.message; err.classList.remove('hide');
+        submit.disabled = false;
+      }
+    };
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -8,7 +8,7 @@ services:
     nodeVersion: "22.x"
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       # Secreto de sesión: Render lo genera y guarda en Variables de Entorno.
       - key: SECRET

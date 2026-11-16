@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel instructor · DevStore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div id="hdr"></div>
+<main id="main">
+  <div class="container">
+    <div id="instRoot" class="dash-layout">
+      <div class="skeleton" style="height:240px"></div>
+      <div class="skeleton" style="height:500px"></div>
+    </div>
+  </div>
+</main>
+<footer class="footer"><div class="container footer-in"><div><b>DevStore</b> · Panel de instructor.</div><div class="footer-links"><a href="/perfil.html">Mi perfil</a><a href="/cursos.html">Catálogo</a></div></div></footer>
+
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const { $, esc, api, money, toast, statusBadge, formatDuration, initials, openModal, closeModal } = DS;
+  const user = await DS.requireAuth(['instructor']);
+  if (!user) return;
+  await DS.mountHeader('instructor');
+  const root = $('#instRoot');
+  let resumen = null;
+  let cursos = [];
+  let categorias = [];
+  let analitica = null;
+  let cobros = null;
+
+  function verificacion() {
+    const v = resumen?.verificacion || {};
+    const estado = v.estado_verificacion || 'pendiente';
+    if (estado === 'verificado') return `<div class="alert ok"><b>Cuenta verificada.</b> Ya puedes enviar cursos a revisión y publicar contenido aprobado.</div>`;
+    if (estado === 'rechazado') return `<div class="alert err"><b>Verificación rechazada.</b> ${esc(v.motivo_rechazo || 'Revisa tu evidencia profesional y vuelve a enviar la solicitud.')} <a href="/perfil.html">Actualizar perfil</a></div>`;
+    return `<div class="alert warn"><b>Verificación pendiente.</b> Puedes preparar borradores y el temario, pero no enviar cursos a revisión hasta que aprobemos tu perfil. <a href="/perfil.html">Revisar mi solicitud</a></div>`;
+  }
+
+  function acciones(c) {
+    const verificado = resumen?.verificacion?.estado_verificacion === 'verificado';
+    return `<div class="cr-actions">
+      <a class="btn btn-ghost btn-sm" href="/editor-curso.html?id=${c.id}">Editar</a>
+      ${c.estado === 'aprobado' ? `<a class="btn btn-soft btn-sm" href="/curso.html?slug=${encodeURIComponent(c.slug)}">Ver público</a>` : ''}
+      ${verificado && ['borrador', 'rechazado'].includes(c.estado) ? `<button class="btn btn-soft btn-sm" data-submit="${c.id}" type="button">Enviar a revisión</button>` : ''}
+    </div>`;
+  }
+
+  function panelAnalitica() {
+    const a = analitica;
+    if (!a) return '';
+    const r = a.resumen || {};
+    const maxIngreso = Math.max(1, ...a.serie.map(m => m.ingresos || 0));
+    const barras = a.serie.map(m => `<div class="chart-col" title="${esc(m.etiqueta)}: ${money(m.ingresos)} · ${m.ventas} ventas">
+        <span class="chart-val">${m.ingresos ? money(m.ingresos) : ''}</span>
+        <span class="chart-bar" style="height:${Math.max(3, Math.round((m.ingresos / maxIngreso) * 100))}%"></span>
+        <span class="chart-lab">${esc(m.etiqueta)}</span>
+      </div>`).join('');
+    const filas = a.por_curso.length
+      ? a.por_curso.map(c => `<tr>
+          <td><b>${esc(c.titulo)}</b><small class="muted">${esc(DS.statusLabel(c.estado))} · ${c.estudiantes} estudiantes</small></td>
+          <td class="num">${c.ventas}</td>
+          <td class="num">${money(c.ingresos)}</td>
+          <td class="num">${c.hilos} / ${c.respuestas}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="4" class="muted">Aún no hay ventas registradas.</td></tr>';
+    const metodos = a.por_metodo.length
+      ? a.por_metodo.map(m => `<div class="method-row"><span>${esc(m.metodo)}</span><b>${money(m.ingresos)}</b><small>${m.ventas} venta${m.ventas === 1 ? '' : 's'}</small></div>`).join('')
+      : '<p class="muted small">Sin pagos registrados.</p>';
+    const recientes = a.recientes.length
+      ? a.recientes.map(v => `<div class="recent-row"><span><b>${esc(v.curso)}</b><small>${DS.formatDate(v.fecha)} · ${esc(v.metodo)}</small></span><b>${money(v.precio)}</b></div>`).join('')
+      : '<p class="muted small">Sin movimientos recientes.</p>';
+
+    return `<section class="panel analytics" id="analitica" style="margin-top:1rem">
+      <div class="spread">
+        <div><h2 style="margin:0">Analítica de ventas</h2><p class="muted small" style="margin:.2rem 0 0">Métricas agregadas de tus cursos. No se muestran datos personales de compradores.</p></div>
+        <span class="badge badge-accent">Solo instructor</span>
+      </div>
+      <div class="stat-grid" style="margin-top:1rem">
+        <div class="stat"><small>Ingresos</small><b>${money(r.ingresos || 0)}</b><div class="stat-sub">histórico demo</div></div>
+        <div class="stat"><small>Ventas</small><b>${r.ventas || 0}</b><div class="stat-sub">ticket medio ${money(r.ticket_medio || 0)}</div></div>
+        <div class="stat"><small>Estudiantes</small><b>${r.estudiantes || 0}</b><div class="stat-sub">únicos en tus cursos</div></div>
+        <div class="stat"><small>Foro</small><b>${r.hilos || 0}</b><div class="stat-sub">${r.respuestas || 0} respuestas</div></div>
+      </div>
+      <div class="analytics-chart">
+        <div class="spread"><h3 style="margin:0">Ingresos por mes</h3><span class="muted small">Últimos 6 meses</span></div>
+        <div class="chart-bars" role="img" aria-label="Ingresos mensuales de tus cursos">${barras}</div>
+      </div>
+      <div class="analytics-grid">
+        <div class="panel-inner">
+          <h3>Rendimiento por curso</h3>
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th>Curso</th><th class="num">Ventas</th><th class="num">Ingresos</th><th class="num">Hilos/Resp.</th></tr></thead>
+            <tbody>${filas}</tbody>
+          </table></div>
+        </div>
+        <div class="stack">
+          <div class="panel-inner"><h3>Métodos de pago</h3>${metodos}</div>
+          <div class="panel-inner"><h3>Ventas recientes</h3>${recientes}</div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function panelCobros() {
+    const c = cobros || {};
+    const opcionesTipo = ['Cuenta de ahorros', 'Cuenta corriente'];
+    return `<section class="panel" id="cobros" style="margin-top:1rem">
+      <div class="spread">
+        <div><h2 style="margin:0">Datos de cobro</h2><p class="muted small" style="margin:.2rem 0 0">Se muestran al estudiante al pagar con transferencia o QR. Son datos de demostración: no se procesan cobros reales.</p></div>
+        <span class="badge badge-outline">Pago simulado</span>
+      </div>
+      <form id="cobroForm" class="cobro-grid" style="margin-top:1rem">
+        <div><label for="cBanco">Banco</label>
+          <input id="cBanco" value="${esc(c.banco || '')}" placeholder="Ej. Banco Unión" maxlength="120"></div>
+        <div><label for="cTitular">Titular de la cuenta</label>
+          <input id="cTitular" value="${esc(c.titular || '')}" placeholder="Nombre completo" maxlength="120"></div>
+        <div><label for="cCuenta">Número de cuenta</label>
+          <input id="cCuenta" value="${esc(c.cuenta || '')}" placeholder="0000-0000-0000" maxlength="60"></div>
+        <div><label for="cTipo">Tipo de cuenta</label>
+          <select id="cTipo">
+            <option value="">Selecciona…</option>
+            ${opcionesTipo.map(t => `<option value="${esc(t)}" ${c.tipo_cuenta === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+          </select></div>
+        <div class="full"><label for="cInstrucciones">Instrucciones para el estudiante</label>
+          <textarea id="cInstrucciones" maxlength="500" placeholder="Ej. Usa tu email como referencia y conserva el comprobante.">${esc(c.instrucciones || '')}</textarea></div>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">Guardar datos de cobro</button></div>
+      </form>
+      <hr class="divider">
+      <div class="qr-config">
+        <div>
+          <h3 style="margin-top:0">Pago por QR</h3>
+          <p class="muted small" style="margin-top:0">Sube una imagen PNG, JPG o WebP de hasta 3 MB. Se mostrará en el checkout cuando el estudiante elija «Pago por QR».</p>
+          <div class="qr-preview" id="qrPreview">
+            ${c.qr_url
+              ? `<img src="${esc(c.qr_url)}" alt="Tu código QR de cobro" width="180" height="180">`
+              : '<span class="muted small">Sin código QR configurado</span>'}
+          </div>
+          <div class="form-actions">
+            <label class="btn btn-soft btn-sm file-btn">Subir imagen
+              <input id="qrFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+            </label>
+            ${c.qr_url ? '<button class="btn btn-ghost btn-sm link-danger" id="qrDelete" type="button">Eliminar QR</button>' : ''}
+          </div>
+        </div>
+        <div class="qr-tips">
+          <b>Consejos</b>
+          <ul>
+            <li>Usa una imagen cuadrada y nítida.</li>
+            <li>Evita capturas con datos personales alrededor del código.</li>
+            <li>Si no configuras QR ni cuenta bancaria, esos métodos aparecerán deshabilitados en el checkout.</li>
+          </ul>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function pintar() {
+    const v = resumen?.verificacion || {};
+    const puedeCrear = true;
+    root.innerHTML = `
+      <aside class="side-nav">
+        <div class="side-user"><span class="avatar">${esc(initials(user.nombre + ' ' + (user.apellidos || '')))}</span><div><b>${esc(user.nombre)} ${esc(user.apellidos || '')}</b><small>Instructor</small></div></div>
+        <a href="/instructor.html" class="on">Panel instructor</a>
+        <a href="#analitica">Analítica</a>
+        <a href="#cobros">Cobros</a>
+        <a href="/perfil.html">Mi perfil</a>
+        <a href="/cursos.html">Catálogo</a>
+        <a href="/editor-curso.html">Crear curso</a>
+      </aside>
+      <div class="dash-main">
+        <div class="page-title">
+          <div><h1>Panel instructor</h1><p>Gestiona tus cursos, revisa su estado y mantén tu contenido al día.</p></div>
+          <button class="btn btn-primary" id="newCourseBtn" type="button" ${puedeCrear ? '' : 'disabled'}>+ Crear curso</button>
+        </div>
+        ${verificacion()}
+        <div class="stat-grid">
+          <div class="stat"><small>Cursos</small><b>${resumen?.cursos || 0}</b><div class="stat-sub">${resumen?.publicados || 0} publicados</div></div>
+          <div class="stat"><small>En revisión</small><b>${resumen?.pendientes || 0}</b><div class="stat-sub">${resumen?.borradores || 0} borradores</div></div>
+          <div class="stat"><small>Estudiantes</small><b>${resumen?.estudiantes || 0}</b><div class="stat-sub">en tus cursos</div></div>
+          <div class="stat"><small>Ingresos demo</small><b>${money(resumen?.ingresos || 0)}</b><div class="stat-sub">métricas agregadas</div></div>
+        </div>
+        ${panelAnalitica()}
+        ${panelCobros()}
+        <section class="panel">
+          <div class="spread"><div><h2 style="margin:0">Mis cursos</h2><p class="muted small" style="margin:.2rem 0 0">Solo tú puedes editar este contenido. No mostramos datos personales de compradores.</p></div><span class="badge badge-outline">${cursos.length} curso${cursos.length === 1 ? '' : 's'}</span></div>
+          <div class="stack" style="margin-top:1rem">
+            ${cursos.length ? cursos.map(c => `<article class="course-row">
+              <div class="cr-main"><div class="row"><b>${esc(c.titulo)}</b>${statusBadge(c.estado)}</div>
+                <small>${esc(c.categoria.nombre)} · ${esc(DS.levelLabel(c.nivel))} · ${c.lecciones} lecciones · ${esc(formatDuration(c.duracion_seg))}</small>
+                ${c.motivo_rechazo ? `<div class="alert err small" style="margin-top:.5rem">Motivo: ${esc(c.motivo_rechazo)}</div>` : ''}
+              </div>
+              <div><span class="price">${Number(c.precio) === 0 ? 'Gratis' : money(c.precio)}</span><br><small class="muted">${c.estudiantes} estudiante${c.estudiantes === 1 ? '' : 's'}</small></div>
+              ${acciones(c)}
+            </article>`).join('') : `<div class="empty"><span class="empty-ico">📚</span><b>Aún no tienes cursos</b><small>Crea tu primer curso, organiza el temario y envíalo a revisión.</small></div>`}
+          </div>
+        </section>
+      </div>`;
+
+    $('#newCourseBtn').onclick = abrirCrear;
+    if (location.hash === '#analitica') setTimeout(() => $('#analitica')?.scrollIntoView({ block: 'start' }), 80);
+    if (location.hash === '#cobros') setTimeout(() => $('#cobros')?.scrollIntoView({ block: 'start' }), 80);
+    $('#cobroForm')?.addEventListener('submit', guardarCobro);
+    $('#qrFile')?.addEventListener('change', subirQr);
+    if ($('#qrDelete')) $('#qrDelete').onclick = eliminarQr;
+    root.onclick = async e => {
+      const b = e.target.closest('[data-submit]');
+      if (!b) return;
+      b.disabled = true;
+      try {
+        await api(`/api/instructor/cursos/${b.dataset.submit}/enviar-revision`, { method: 'POST' });
+        toast('Curso enviado a revisión');
+        await cargar();
+      } catch (ex) { toast(ex.message, 'err'); b.disabled = false; }
+    };
+  }
+
+  async function guardarCobro(e) {
+    e.preventDefault();
+    const btn = e.currentTarget.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try {
+      const r = await api('/api/instructor/pago', {
+        method: 'PUT',
+        body: {
+          banco: $('#cBanco').value,
+          titular: $('#cTitular').value,
+          cuenta: $('#cCuenta').value,
+          tipo_cuenta: $('#cTipo').value,
+          instrucciones: $('#cInstrucciones').value
+        }
+      });
+      cobros = { ...(cobros || {}), ...r.pago };
+      toast('Datos de cobro actualizados');
+    } catch (ex) {
+      toast(ex.message, 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function subirQr(e) {
+    const archivo = e.target.files && e.target.files[0];
+    if (!archivo) return;
+    if (archivo.size > 3 * 1024 * 1024) {
+      toast('La imagen supera el límite de 3 MB', 'err');
+      e.target.value = '';
+      return;
+    }
+    const datos = new FormData();
+    datos.append('qr', archivo);
+    try {
+      const r = await api('/api/instructor/pago/qr', { method: 'POST', body: datos });
+      cobros = { ...(cobros || {}), qr_url: r.qr_url, qr_nombre: r.qr_nombre };
+      toast('Código QR actualizado');
+      pintar();
+      $('#cobros')?.scrollIntoView({ behavior: DS.reduce ? 'auto' : 'smooth', block: 'start' });
+    } catch (ex) {
+      toast(ex.message, 'err');
+    } finally {
+      e.target.value = '';
+    }
+  }
+
+  async function eliminarQr() {
+    try {
+      await api('/api/instructor/pago/qr', { method: 'DELETE' });
+      cobros = { ...(cobros || {}), qr_url: null, qr_nombre: null };
+      toast('Código QR eliminado');
+      pintar();
+      $('#cobros')?.scrollIntoView({ behavior: DS.reduce ? 'auto' : 'smooth', block: 'start' });
+    } catch (ex) {
+      toast(ex.message, 'err');
+    }
+  }
+
+  async function cargar() {
+    const [r, cs, an, co] = await Promise.all([
+      api('/api/instructor/resumen'), api('/api/instructor/cursos'),
+      api('/api/instructor/analitica'), api('/api/instructor/pago')
+    ]);
+    resumen = r;
+    cursos = cs;
+    analitica = an;
+    cobros = co;
+    pintar();
+  }
+
+  function abrirCrear() {
+    const cats = categorias.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+    openModal(`<div class="modal-head"><div><h2>Crear un curso</h2><p class="muted small" style="margin:.2rem 0 0">Empieza con lo básico. Podrás completar el resto en el editor.</p></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button></div>
+      <form id="createForm" class="modal-body">
+        <label for="nTitle">Título del curso <span class="req">*</span></label>
+        <input id="nTitle" placeholder="Ej. APIs REST con Node.js" required minlength="5" maxlength="140">
+        <label for="nCat">Área <span class="req">*</span></label>
+        <select id="nCat" required>${cats}</select>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">Crear borrador</button><button class="btn btn-ghost" type="button" data-close>Cancelar</button></div>
+      </form>`);
+    $('#createForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = e.currentTarget.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        const r = await api('/api/instructor/cursos', { method: 'POST', body: { titulo: $('#nTitle').value, categoria_id: Number($('#nCat').value) } });
+        closeModal();
+        location.href = `/editor-curso.html?id=${r.id}`;
+      } catch (ex) { toast(ex.message, 'err'); btn.disabled = false; }
+    });
+  }
+
+  try {
+    [resumen, cursos, categorias, analitica, cobros] = await Promise.all([
+      api('/api/instructor/resumen'), api('/api/instructor/cursos'), api('/api/categorias'),
+      api('/api/instructor/analitica'), api('/api/instructor/pago')
+    ]);
+    pintar();
+  } catch (e) {
+    root.innerHTML = `<div class="empty" style="margin:2rem 0"><span class="empty-ico">⚠️</span><b>No se pudo cargar el panel</b><small>${esc(e.message)}</small></div>`;
+  }
+})();
+</script>
+</body>
+</html>

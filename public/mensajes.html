@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mensajes · DevStore</title>
+<meta name="description" content="Mensajería interna entre estudiantes e instructores de DevStore.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div id="hdr"></div>
+<main id="main">
+  <div class="container">
+    <div id="chatRoot" class="chat-shell">
+      <div class="skeleton" style="height:520px"></div>
+    </div>
+  </div>
+</main>
+<footer class="footer"><div class="container footer-in"><div><b>DevStore</b> · Mensajería interna.</div><div class="footer-links"><a href="/cursos.html">Cursos</a><a href="/perfil.html">Mi perfil</a></div></div></footer>
+
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const { $, esc, api, toast, initials, formatDate } = DS;
+  const user = await DS.requireAuth();
+  if (!user) return;
+  await DS.mountHeader('mensajes');
+  const root = $('#chatRoot');
+  const params = new URLSearchParams(location.search);
+
+  let conversaciones = [];
+  let actual = null;
+  let mensajes = [];
+  let mostrandoContactos = false;
+
+  const rolLabel = rol => ({ instructor: 'Instructor', administrador: 'Administración', cliente: 'Cliente' }[rol] || 'Usuario');
+
+  function hora(v) {
+    if (!v) return '';
+    const d = new Date(String(v).replace(' ', 'T') + (String(v).includes('Z') ? '' : 'Z'));
+    if (Number.isNaN(d.getTime())) return '';
+    const hoy = new Date();
+    const mismoDia = d.toDateString() === hoy.toDateString();
+    return mismoDia
+      ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+      : formatDate(v);
+  }
+
+  function nombreOtro(c) {
+    return c?.otro?.nombre || 'Usuario';
+  }
+
+  function vista() {
+    root.innerHTML = `
+      <aside class="chat-side panel" aria-label="Conversaciones">
+        <div class="chat-side-head">
+          <div><h1>Mensajes</h1><small class="muted">Conversaciones internas</small></div>
+          <button class="btn btn-soft btn-sm" id="nuevaConv" type="button">+ Nueva</button>
+        </div>
+        <div class="chat-search">
+          <input id="buscarConv" type="search" placeholder="Buscar conversación…" aria-label="Buscar conversación">
+        </div>
+        <div class="chat-panel" id="contactosPanel" hidden>
+          <div class="spread"><b class="small">Iniciar conversación</b><button class="btn btn-ghost btn-sm" id="cerrarContactos" type="button">Cerrar</button></div>
+          <input id="buscarContacto" type="search" placeholder="Nombre, apellido o email…" aria-label="Buscar persona">
+          <div id="contactosList" class="contactos-list"><p class="muted small">Escribe para buscar personas.</p></div>
+        </div>
+        <div class="conv-list" id="convList"></div>
+      </aside>
+      <section class="chat-main panel" id="chatMain" aria-live="polite">
+        <div class="chat-empty"><span class="empty-ico">✉️</span><b>Selecciona una conversación</b><small>O inicia una nueva para escribir a un instructor o compañero.</small></div>
+      </section>`;
+
+    $('#nuevaConv').onclick = () => alternarContactos(true);
+    $('#cerrarContactos').onclick = () => alternarContactos(false);
+    $('#buscarConv').oninput = pintarConversaciones;
+    const buscar = DS.debounce(q => buscarContactos(q), 250);
+    $('#buscarContacto').oninput = e => buscar(e.target.value);
+
+    $('#convList').addEventListener('click', e => {
+      const b = e.target.closest('[data-conv]');
+      if (b) abrir(Number(b.dataset.conv));
+    });
+
+    $('#contactosList').addEventListener('click', async e => {
+      const b = e.target.closest('[data-contacto]');
+      if (!b) return;
+      b.disabled = true;
+      try {
+        const conv = await api('/api/mensajes/conversaciones', { method: 'POST', body: { usuario_id: Number(b.dataset.contacto) } });
+        alternarContactos(false);
+        await cargarConversaciones();
+        await abrir(conv.id);
+      } catch (ex) {
+        toast(ex.message, 'err');
+        b.disabled = false;
+      }
+    });
+
+    pintarConversaciones();
+  }
+
+  function alternarContactos(mostrar) {
+    mostrandoContactos = mostrar;
+    const panel = $('#contactosPanel');
+    if (!panel) return;
+    panel.hidden = !mostrar;
+    if (mostrar) {
+      $('#buscarContacto').focus();
+      buscarContactos('');
+    }
+  }
+
+  function pintarConversaciones() {
+    const box = $('#convList');
+    if (!box) return;
+    const q = ($('#buscarConv')?.value || '').trim().toLowerCase();
+    const lista = conversaciones.filter(c => !q
+      || nombreOtro(c).toLowerCase().includes(q)
+      || String(c.ultimo_mensaje || '').toLowerCase().includes(q));
+    if (!lista.length) {
+      box.innerHTML = `<div class="chat-list-empty"><span aria-hidden="true">💬</span><small>${conversaciones.length ? 'Sin resultados' : 'Aún no tienes conversaciones'}</small></div>`;
+      return;
+    }
+    box.innerHTML = lista.map(c => `<button class="conv-item ${actual?.id === c.id ? 'on' : ''}" type="button" data-conv="${c.id}">
+        <span class="avatar">${esc(initials(nombreOtro(c)))}</span>
+        <span class="conv-txt"><b>${esc(nombreOtro(c))}</b><small>${esc(c.ultimo_mensaje || 'Conversación iniciada')}</small></span>
+        <span class="conv-meta"><time>${esc(hora(c.ultimo_en))}</time>${c.no_leidos ? `<span class="badge-dot inline">${c.no_leidos > 99 ? '99+' : c.no_leidos}</span>` : ''}</span>
+      </button>`).join('');
+  }
+
+  async function buscarContactos(q) {
+    const box = $('#contactosList');
+    if (!box) return;
+    try {
+      const lista = await api('/api/mensajes/contactos' + (q ? '?q=' + encodeURIComponent(q) : ''));
+      box.innerHTML = lista.length
+        ? lista.map(c => `<button class="contacto-row" type="button" data-contacto="${c.id}">
+            <span class="avatar sm">${esc(initials(c.nombre))}</span>
+            <span><b>${esc(c.nombre)}</b><small>${esc(rolLabel(c.rol))}</small></span>
+          </button>`).join('')
+        : '<p class="muted small">No se encontraron personas.</p>';
+    } catch (e) {
+      box.innerHTML = `<p class="muted small">${esc(e.message)}</p>`;
+    }
+  }
+
+  async function cargarConversaciones() {
+    try {
+      conversaciones = await api('/api/mensajes/conversaciones');
+      pintarConversaciones();
+      DS.refrescarBadges();
+    } catch (e) {
+      toast(e.message, 'err');
+    }
+  }
+
+  async function abrir(id) {
+    if (!Number.isInteger(id)) return;
+    try {
+      const datos = await api('/api/mensajes/conversaciones/' + id);
+      actual = datos.conversacion;
+      mensajes = datos.mensajes || [];
+      history.replaceState(null, '', '/mensajes.html?c=' + id);
+      pintarChat();
+      const c = conversaciones.find(x => x.id === id);
+      if (c) { c.no_leidos = 0; pintarConversaciones(); }
+      DS.refrescarBadges();
+      if (innerWidth < 900) $('#chatMain')?.scrollIntoView({ block: 'start' });
+    } catch (e) {
+      toast(e.message, 'err');
+    }
+  }
+
+  function burbuja(m) {
+    const propio = m.emisor_id === user.id;
+    return `<div class="msg ${propio ? 'own' : ''}" data-msg="${m.id}">
+      ${propio ? '' : `<span class="msg-author">${esc(m.emisor)}</span>`}
+      <div class="msg-bubble">${esc(m.contenido)}</div>
+      <time>${esc(hora(m.creado))}</time>
+    </div>`;
+  }
+
+  function pintarChat() {
+    const main = $('#chatMain');
+    if (!main || !actual) return;
+    main.innerHTML = `
+      <div class="chat-head">
+        <span class="avatar">${esc(initials(nombreOtro(actual)))}</span>
+        <div><b>${esc(nombreOtro(actual))}</b><small>${esc(rolLabel(actual.otro?.rol))}</small></div>
+      </div>
+      <div class="chat-body" id="chatBody">
+        ${mensajes.length ? mensajes.map(burbuja).join('') : '<div class="chat-empty small"><span class="empty-ico">👋</span><b>Empieza la conversación</b><small>Escribe el primer mensaje.</small></div>'}
+      </div>
+      <form class="chat-composer" id="composer">
+        <textarea id="msgInput" rows="2" maxlength="2000" placeholder="Escribe un mensaje… (Enter para enviar)" aria-label="Mensaje"></textarea>
+        <button class="btn btn-primary" type="submit" id="sendBtn">Enviar</button>
+      </form>`;
+    const body = $('#chatBody');
+    body.scrollTop = body.scrollHeight;
+    $('#msgInput').focus();
+    $('#msgInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#composer').requestSubmit(); }
+    });
+    $('#composer').addEventListener('submit', enviar);
+  }
+
+  async function enviar(ev) {
+    ev.preventDefault();
+    const input = $('#msgInput');
+    const texto = input.value.trim();
+    if (!texto || !actual) return;
+    const btn = $('#sendBtn');
+    btn.disabled = true;
+    try {
+      const r = await api('/api/mensajes/conversaciones/' + actual.id, { method: 'POST', body: { contenido: texto } });
+      input.value = '';
+      agregarMensaje(r.mensaje);
+      const c = conversaciones.find(x => x.id === actual.id);
+      if (c) { c.ultimo_mensaje = texto; c.ultimo_en = r.mensaje.creado; c.ultimo_emisor = user.id; pintarConversaciones(); }
+    } catch (e) {
+      toast(e.message, 'err');
+    } finally {
+      btn.disabled = false;
+      input.focus();
+    }
+  }
+
+  function agregarMensaje(m) {
+    if (!m || !actual || m.conversacion_id !== actual.id) return;
+    if (mensajes.some(x => x.id === m.id)) return;
+    const body = $('#chatBody');
+    if (!body) return;
+    const vacio = body.querySelector('.chat-empty');
+    if (vacio) body.innerHTML = '';
+    mensajes.push(m);
+    body.insertAdjacentHTML('beforeend', burbuja(m));
+    body.scrollTop = body.scrollHeight;
+  }
+
+  DS.alEvento('mensaje', ({ mensaje, conversacion_id, propio }) => {
+    if (actual && Number(conversacion_id) === actual.id) {
+      agregarMensaje(mensaje);
+      if (propio) {
+        const c = conversaciones.find(x => x.id === actual.id);
+        if (c) { c.ultimo_mensaje = mensaje.contenido; c.ultimo_en = mensaje.creado; pintarConversaciones(); }
+      } else {
+        api('/api/mensajes/conversaciones/' + actual.id + '/leer', { method: 'POST' }).then(() => DS.refrescarBadges()).catch(() => {});
+        const c = conversaciones.find(x => x.id === actual.id);
+        if (c) { c.ultimo_mensaje = mensaje.contenido; c.ultimo_en = mensaje.creado; c.no_leidos = 0; pintarConversaciones(); }
+      }
+    } else {
+      cargarConversaciones();
+    }
+  });
+
+  DS.alEvento('notificacion', n => {
+    if (n && n.tipo === 'mensaje') cargarConversaciones();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { cargarConversaciones(); DS.refrescarBadges(); }
+  });
+
+  vista();
+  await cargarConversaciones();
+  const inicial = Number(params.get('c'));
+  if (Number.isInteger(inicial) && inicial > 0) await abrir(inicial);
+})();
+</script>
+</body>
+</html>

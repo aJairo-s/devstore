@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Curso · DevStore</title>
+<meta name="description" content="Detalle del curso, temario, instructor y lecciones de vista previa.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div id="hdr"></div>
+<main id="main">
+  <div class="container" id="courseRoot">
+    <div class="breadcrumb">Cargando curso…</div>
+    <div class="skeleton" style="min-height:360px"></div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container footer-in">
+    <div><b>DevStore</b> · Aprende desarrollo de software con proyectos reales.</div>
+    <div class="footer-links"><a href="/cursos.html">Cursos</a><a href="/acceso.html?tab=instructor">Enseñar</a><a href="/acceso.html">Acceder</a></div>
+  </div>
+</footer>
+
+<script src="/js/app.js"></script>
+<script src="/js/pago-tarjeta.js"></script>
+<script>
+(async () => {
+  const { $, esc, api, money, params, toast, formatDuration, levelLabel, initials, hue, statusBadge, openModal, closeModal } = DS;
+  const user = await DS.mountHeader('cursos');
+  const slug = params().get('slug');
+  const root = $('#courseRoot');
+
+  if (!slug) {
+    root.innerHTML = `<div class="empty" style="margin:3rem 0"><span class="empty-ico">🔎</span><b>Falta el curso</b><small>Vuelve al <a href="/cursos.html">catálogo</a> y elige un curso.</small></div>`;
+    return;
+  }
+
+  let curso;
+  try {
+    curso = await api('/api/cursos/' + encodeURIComponent(slug));
+  } catch (e) {
+    root.innerHTML = `<div class="breadcrumb"><a href="/">Inicio</a> / <a href="/cursos.html">Cursos</a></div>
+      <div class="empty" style="margin:2rem 0"><span class="empty-ico">📚</span><b>${e.status === 404 ? 'Curso no encontrado' : 'No se pudo cargar el curso'}</b><small>${esc(e.message)}</small><p style="margin-top:1rem"><a class="btn btn-ghost" href="/cursos.html">Volver al catálogo</a></p></div>`;
+    return;
+  }
+
+  document.title = `${curso.titulo} · DevStore`;
+  const h = hue(curso.categoria.slug);
+  const totalSecciones = curso.secciones.length;
+  const horas = formatDuration(curso.duracion_seg);
+  const puedeEntrar = curso.acceso_completo;
+  const esGratis = Number(curso.precio) === 0;
+  const esPropietario = user && user.rol === 'instructor' && curso.instructor_id === user.id;
+  const esAdmin = user && user.rol === 'administrador';
+  const puedeComprar = user && user.rol === 'cliente' && !puedeEntrar && curso.estado === 'aprobado';
+  const next = encodeURIComponent(location.pathname + location.search);
+
+  const accion = puedeEntrar
+    ? `<a class="btn btn-primary btn-block" href="#playerCard">Ir al contenido</a>${puedeEntrar ? '<a class="btn btn-soft btn-block" href="#foro" style="margin-top:.5rem">Foro del curso</a>' : ''}`
+    : puedeComprar
+      ? `<button class="btn btn-primary btn-block" id="comprarBtn" type="button">${esGratis ? 'Inscribirme gratis' : 'Comprar ahora'}</button><p class="fine">${esGratis ? 'Este curso es gratuito: la inscripción es inmediata.' : 'Pago simulado de demostración. No se realiza ningún cargo real.'}</p>`
+      : user
+        ? `<button class="btn btn-primary btn-block" type="button" disabled>${curso.estado === 'aprobado' ? 'Solo cuentas de cliente' : 'Curso no publicado'}</button><p class="fine">${curso.estado === 'aprobado' ? 'Inicia sesión con una cuenta de cliente para inscribirte en este curso.' : 'Este curso todavía no está disponible para inscripción.'}</p>`
+        : `<a class="btn btn-primary btn-block" href="/acceso.html?next=${next}">Inicia sesión para acceder</a><p class="fine">Crea una cuenta gratuita para guardar tu progreso y acceder a tus cursos.</p>`;
+
+  root.innerHTML = `
+    <nav class="breadcrumb" aria-label="Migas de pan">
+      <a href="/">Inicio</a><span>/</span><a href="/cursos.html">Cursos</a><span>/</span>
+      <a href="/cursos.html?categoria=${encodeURIComponent(curso.categoria.slug)}">${esc(curso.categoria.nombre)}</a><span>/</span><span>${esc(curso.titulo)}</span>
+    </nav>
+
+    <header class="detail-hero" style="--hue:${h}">
+      <div class="row">
+        <span class="badge badge-accent">${esc(curso.categoria.icono || '📚')} ${esc(curso.categoria.nombre)}</span>
+        <span class="badge badge-outline">${esc(levelLabel(curso.nivel))}</span>
+        ${curso.estado !== 'aprobado' ? statusBadge(curso.estado) : ''}
+      </div>
+      <h1>${esc(curso.titulo)}</h1>
+      <p class="lead">${esc(curso.resumen)}</p>
+      <div class="detail-meta">
+        <span>👤 ${esc(curso.instructor.nombre)}</span>
+        <span>📚 ${curso.lecciones} lecciones</span>
+        <span>⏱ ${esc(horas)}</span>
+        <span>🌐 ${esc(curso.idioma)}</span>
+        <span>👥 ${curso.estudiantes} estudiante${curso.estudiantes === 1 ? '' : 's'}</span>
+      </div>
+    </header>
+
+    <div class="detail-grid">
+      <div class="detail-main">
+        <section class="panel">
+          <h2>Sobre este curso</h2>
+          <p class="soft" style="white-space:pre-line;margin-bottom:0">${esc(curso.descripcion)}</p>
+        </section>
+
+        <section class="panel curriculum" style="margin-top:1rem">
+          <div class="curriculum-head"><h2>Temario</h2><span>${totalSecciones} secciones · ${curso.lecciones} lecciones</span></div>
+          ${curso.secciones.map((s, i) => {
+            const dur = s.lecciones.reduce((a, l) => a + (l.duracion_seg || 0), 0);
+            return `<div class="acc-section">
+              <button class="acc-head" type="button" aria-expanded="${i === 0 ? 'true' : 'false'}" aria-controls="sec-${s.id}">
+                <span class="badge badge-outline">${String(i + 1).padStart(2, '0')}</span>
+                <span><b>${esc(s.titulo)}</b><br><small>${s.lecciones.length} lecciones · ${esc(formatDuration(dur))}</small></span>
+                <span class="chev" aria-hidden="true">⌄</span>
+              </button>
+              <div class="acc-body ${i === 0 ? 'open' : ''}" id="sec-${s.id}">
+                ${s.lecciones.map(l => {
+                  const locked = !puedeEntrar && !l.es_preview;
+                  return `<button class="lesson-row ${l.es_preview ? 'preview' : ''} ${locked ? 'locked' : ''}" type="button" data-lesson="${l.id}" data-title="${esc(l.titulo)}" ${locked ? 'aria-disabled="true"' : ''}>
+                    <span class="l-ico" aria-hidden="true">${locked ? '🔒' : '▶'}</span>
+                    <span>${esc(l.titulo)}</span>
+                    ${l.es_preview ? '<span class="l-tag">Vista previa</span>' : ''}
+                    <span class="l-dur">${esc(formatDuration(l.duracion_seg))}</span>
+                  </button>`;
+                }).join('')}
+              </div>
+            </div>`;
+          }).join('')}
+        </section>
+
+        <section class="panel" style="margin-top:1rem">
+          <h2>Tu instructor</h2>
+          <div class="instructor-card">
+            <span class="avatar">${esc(initials(curso.instructor.nombre))}</span>
+            <div><b>${esc(curso.instructor.nombre)}</b><small>Instructor verificado por DevStore</small><p class="small muted" style="margin:.45rem 0 0">Contenido revisado antes de su publicación y actualizado periódicamente.</p></div>
+            ${user && user.rol === 'cliente' && !esPropietario ? '<button class="btn btn-soft btn-sm" id="contactarBtn" type="button">Contactar</button>' : ''}
+          </div>
+        </section>
+
+        <section class="panel foro-panel" id="foro" style="margin-top:1rem">
+          <div class="spread">
+            <div><h2 style="margin:0">Foro del curso</h2><p class="muted small" style="margin:.2rem 0 0">Preguntas y respuestas entre estudiantes e instructor.</p></div>
+            <span class="badge badge-outline" id="foroEstado">${puedeEntrar ? 'Cargando…' : 'Solo inscritos'}</span>
+          </div>
+          <div id="foroRoot">
+            ${puedeEntrar
+              ? '<div class="skeleton" style="height:120px;margin-top:1rem"></div>'
+              : `<div class="foro-locked"><span aria-hidden="true">🔒</span><div><b>El foro está disponible al inscribirte</b><small>${user ? 'Inscríbete en el curso para abrir hilos, responder y recibir avisos del instructor.' : 'Inicia sesión y accede al curso para participar.'}</small></div>${user ? '' : `<a class="btn btn-soft btn-sm" href="/acceso.html?next=${next}">Iniciar sesión</a>`}</div>`}
+          </div>
+        </section>
+      </div>
+
+      <aside class="detail-side">
+        <section class="panel price-card">
+          <div class="price-big">${esGratis ? 'Gratis' : money(curso.precio)}</div>
+          ${accion}
+        </section>
+
+        <section class="panel" id="playerCard">
+          <div class="player-head"><b>Reproductor</b><small id="playerState">Selecciona una lección</small></div>
+          <div class="video-frame" id="videoFrame">
+            <div class="video-placeholder"><span class="vp-ico">🎬</span>Elige una lección de vista previa para empezar.</div>
+          </div>
+          <div class="player-note" id="playerNote">Las lecciones de vista previa están disponibles para todos. El acceso completo requiere inscripción.</div>
+        </section>
+
+        <section class="panel">
+          <h3>Este curso incluye</h3>
+          <ul class="auth-points" style="margin:0">
+            <li><span class="dot">✓</span><span>${curso.lecciones} lecciones en video</span></li>
+            <li><span class="dot">✓</span><span>${esc(horas)} de contenido</span></li>
+            <li><span class="dot">✓</span><span>Temario organizado por secciones</span></li>
+            <li><span class="dot">✓</span><span>Foro privado del curso</span></li>
+            <li><span class="dot">✓</span><span>Instructor verificado</span></li>
+            <li><span class="dot">✓</span><span>Acceso desde cualquier dispositivo</span></li>
+          </ul>
+        </section>
+      </aside>
+    </div>`;
+
+  // Acordeón del temario
+  root.querySelectorAll('.acc-head').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const body = document.getElementById(btn.getAttribute('aria-controls'));
+      const open = body.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(open));
+    });
+  });
+
+  // Reproductor
+  const frame = $('#videoFrame');
+  async function cargarLeccion(id, titulo) {
+    try {
+      const l = await api('/api/lecciones/' + id);
+      $('#playerState').textContent = l.curso.titulo;
+      $('#playerNote').textContent = l.es_preview ? 'Lección de vista previa gratuita.' : 'Acceso completo al curso.';
+      if (l.tipo_video === 'youtube' && l.youtube_video_id) {
+        frame.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(l.youtube_video_id)}?rel=0" title="${esc(titulo)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      } else if (l.tipo_video === 'archivo' && l.video_url) {
+        frame.innerHTML = `<video controls preload="metadata" src="${esc(l.video_url)}"></video>`;
+      } else {
+        frame.innerHTML = `<div class="video-placeholder"><span class="vp-ico">⏳</span>Esta lección aún no tiene video.</div>`;
+      }
+    } catch (e) {
+      toast(e.message, 'err');
+    }
+  }
+
+  root.addEventListener('click', e => {
+    const row = e.target.closest('[data-lesson]');
+    if (!row) return;
+    if (row.classList.contains('locked')) {
+      toast(user ? 'Inscríbete en el curso para acceder a esta lección.' : 'Inicia sesión y accede al curso para ver esta lección.', 'err');
+      return;
+    }
+    cargarLeccion(row.dataset.lesson, row.dataset.title);
+    if (innerWidth < 960) $('#playerCard').scrollIntoView({ behavior: DS.reduce ? 'auto' : 'smooth', block: 'start' });
+  });
+
+  /* ---------- Compra simulada ---------- */
+  const comprar = $('#comprarBtn');
+  if (comprar) comprar.addEventListener('click', abrirCompra);
+
+  const ICONO_PAGO = { tarjeta: '💳', transferencia: '🏦', qr: '▦', paypal: '🅿️' };
+  let pagoInstructor = null;
+
+  const esperar = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  const CAMPOS_TARJETA = { numero: 'cardNumero', nombre: 'cardNombre', vence: 'cardVence', cvv: 'cardCvv' };
+  const idError = campo => 'err' + campo.charAt(0).toUpperCase() + campo.slice(1);
+
+  function limpiarErrorTarjeta(campo) {
+    const input = $('#' + campo);
+    const error = $('#' + idError(campo));
+    if (input) input.removeAttribute('aria-invalid');
+    if (error) error.textContent = '';
+  }
+
+  function mostrarErrorTarjeta(revision) {
+    Object.values(CAMPOS_TARJETA).forEach(limpiarErrorTarjeta);
+    const campo = CAMPOS_TARJETA[revision.campo];
+    if (campo) {
+      const input = $('#' + campo);
+      const error = $('#' + idError(campo));
+      if (input) { input.setAttribute('aria-invalid', 'true'); input.focus(); }
+      if (error) error.textContent = revision.error;
+    }
+    toast(revision.error, 'err');
+  }
+
+  function metodoDisponible(m) {
+    if (m.slug === 'qr') return Boolean(pagoInstructor && pagoInstructor.qr_url);
+    if (m.slug === 'transferencia')
+      return Boolean(pagoInstructor && pagoInstructor.banco && pagoInstructor.cuenta && pagoInstructor.titular);
+    return true;
+  }
+
+  function motivoNoDisponible(m) {
+    return m.slug === 'qr'
+      ? 'El instructor todavía no subió su código QR'
+      : 'El instructor todavía no configuró su cuenta bancaria';
+  }
+
+  function datoPago(etiqueta, valor) {
+    return valor ? `<div><dt>${esc(etiqueta)}</dt><dd>${esc(valor)}</dd></div>` : '';
+  }
+
+  function detallePagoHTML(slug) {
+    if (slug === 'tarjeta') return `
+      <div class="card-preview" aria-hidden="true">
+        <div class="card-top"><span id="cardBrand">Tarjeta</span><span class="card-demo">DEMO</span></div>
+        <div class="card-num" id="cardPreview">•••• •••• •••• ••••</div>
+        <div class="card-bottom"><span id="cardNamePreview">NOMBRE DEL TITULAR</span><span id="cardExpPreview">MM/AA</span></div>
+      </div>
+      <div class="card-demo-actions">
+        <button class="btn btn-soft btn-sm" type="button" data-demo-card>Usar tarjeta de demostración</button>
+        <small class="muted">Rellena los datos automáticamente</small>
+      </div>
+      <div class="form-grid">
+        <div class="full"><label for="cardNumero">Número de tarjeta</label>
+          <input id="cardNumero" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242" maxlength="30" aria-describedby="errCardNumero">
+          <small class="field-error" id="errCardNumero" role="alert"></small></div>
+        <div class="full"><label for="cardNombre">Nombre en la tarjeta</label>
+          <input id="cardNombre" autocomplete="cc-name" placeholder="Como aparece en la tarjeta" aria-describedby="errCardNombre">
+          <small class="field-error" id="errCardNombre" role="alert"></small></div>
+        <div><label for="cardVence">Vencimiento</label>
+          <input id="cardVence" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA o MM/AAAA" maxlength="9" aria-describedby="errCardVence">
+          <small class="field-error" id="errCardVence" role="alert"></small></div>
+        <div><label for="cardCvv">CVV</label>
+          <input id="cardCvv" type="password" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" aria-describedby="errCardCvv">
+          <small class="field-error" id="errCardCvv" role="alert"></small></div>
+      </div>
+      <p class="fine">Simulación: no se envía ni se almacena ningún dato de tarjeta. Acepta vencimientos <b>MM/AA</b> o <b>MM/AAAA</b>.</p>
+      <details class="test-cards">
+        <summary>Tarjetas de prueba</summary>
+        <ul>${DSCard.TARJETAS_PRUEBA.map(t => `<li>${esc(t.marca)} <code>${esc(t.numero)}</code> · ${esc(t.resultado)}${t.marca === 'Amex' ? ' · CVV de 4 dígitos' : ''}</li>`).join('')}</ul>
+        <small>Usa cualquier vencimiento futuro. Todas las compras siguen siendo simuladas.</small>
+      </details>`;
+
+    if (slug === 'transferencia') {
+      const p = pagoInstructor || {};
+      return `<div class="pay-box">
+        <div class="pay-box-head">
+          <span class="pay-ico" aria-hidden="true">🏦</span>
+          <div><b>Transfiere a la cuenta del instructor</b><small>${esc(curso.instructor.nombre)}</small></div>
+          <button class="btn btn-ghost btn-sm" type="button" data-copiar-datos>Copiar datos</button>
+        </div>
+        <dl class="pay-data">
+          ${datoPago('Banco', p.banco)}
+          ${datoPago('Titular', p.titular)}
+          ${datoPago('Cuenta', p.cuenta)}
+          ${datoPago('Tipo', p.tipo_cuenta)}
+          <div><dt>Monto</dt><dd><b>${money(curso.precio)}</b></dd></div>
+        </dl>
+        <p class="fine">${esc(p.instrucciones || 'Usa tu email como referencia de la transferencia.')}</p>
+      </div>
+      <p class="fine">En esta demo el pago se confirma al instante. En un flujo real el acceso se activaría cuando el instructor valide la transferencia.</p>`;
+    }
+
+    if (slug === 'qr') {
+      const p = pagoInstructor || {};
+      return `<div class="pay-box qr-box">
+        <div class="qr-frame">
+          <img src="${esc(p.qr_url || '')}" alt="Código QR de ${esc(curso.instructor.nombre)} para pagar el curso" width="220" height="220">
+        </div>
+        <div class="qr-info">
+          <b>Escanea y paga ${money(curso.precio)}</b>
+          <ol class="pay-steps">
+            <li>Abre la app de tu banco y elige pagar con QR.</li>
+            <li>Escanea el código del instructor.</li>
+            <li>Verifica el monto y confirma la operación.</li>
+          </ol>
+          <p class="fine">QR de demostración. Al confirmar aquí, la compra se registra como pagada al instante.</p>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="pay-box">
+      <div class="pay-box-head"><span class="pay-ico" aria-hidden="true">🅿️</span><div><b>Pago con PayPal</b><small>Ventana de pago simulada</small></div></div>
+      <p class="fine">Se abriría la pasarela de PayPal en una ventana segura. En esta demo la compra se confirma directamente, sin cargos reales.</p>
+    </div>`;
+  }
+
+  function conectarDetalle(slug) {
+    if (slug === 'tarjeta') {
+      const numero = $('#cardNumero');
+      const nombre = $('#cardNombre');
+      const vence = $('#cardVence');
+      const cvv = $('#cardCvv');
+      if (!numero) return;
+
+      numero.addEventListener('input', () => {
+        const digitos = DSCard.limpiarNumero(numero.value).slice(0, DSCard.MAX_DIGITOS);
+        numero.value = DSCard.formatearNumero(digitos);
+        $('#cardBrand').textContent = DSCard.marca(digitos);
+        const relleno = digitos.padEnd(16, '•');
+        $('#cardPreview').textContent = (relleno.match(/.{1,4}/g) || []).join(' ');
+        limpiarErrorTarjeta('cardNumero');
+      });
+      nombre.addEventListener('input', () => {
+        $('#cardNamePreview').textContent = (nombre.value.trim() || 'NOMBRE DEL TITULAR').toUpperCase().slice(0, 26);
+        limpiarErrorTarjeta('cardNombre');
+      });
+      vence.addEventListener('input', () => {
+        const d = vence.value.replace(/\D/g, '').slice(0, 6);
+        vence.value = d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+        $('#cardExpPreview').textContent = vence.value || 'MM/AA';
+        limpiarErrorTarjeta('cardVence');
+      });
+      cvv.addEventListener('input', () => {
+        cvv.value = cvv.value.replace(/\D/g, '').slice(0, 4);
+        limpiarErrorTarjeta('cardCvv');
+      });
+
+      const demo = document.querySelector('[data-demo-card]');
+      if (demo) demo.addEventListener('click', () => {
+        const escribir = (input, valor) => {
+          input.value = valor;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        escribir(numero, DSCard.DEMO.numero);
+        escribir(nombre, DSCard.DEMO.nombre);
+        escribir(vence, DSCard.DEMO.vence);
+        escribir(cvv, DSCard.DEMO.cvv);
+        toast('Tarjeta de demostración rellenada');
+        numero.focus();
+      });
+
+      numero.focus();
+      return;
+    }
+
+    const copiar = document.querySelector('[data-copiar-datos]');
+    if (copiar) copiar.addEventListener('click', async () => {
+      const p = pagoInstructor || {};
+      const texto = [p.banco, p.titular, p.cuenta, p.tipo_cuenta, money(curso.precio)]
+        .filter(Boolean).join(' · ');
+      try {
+        await navigator.clipboard.writeText(texto);
+        toast('Datos de pago copiados');
+      } catch {
+        toast('No se pudo copiar automáticamente', 'err');
+      }
+    });
+  }
+
+  function validarTarjeta() {
+    return DSCard.validar({
+      numero: $('#cardNumero')?.value,
+      nombre: $('#cardNombre')?.value,
+      vence: $('#cardVence')?.value,
+      cvv: $('#cardCvv')?.value
+    });
+  }
+
+  function mostrarComprobante(compra) {
+    const box = document.querySelector('#dsModal .modal');
+    if (!box) return;
+    box.innerHTML = `<div class="modal-head">
+        <div><h2>${esGratis ? 'Inscripción completada' : 'Pago aprobado'}</h2><p class="muted small" style="margin:.2rem 0 0">Comprobante de demostración</p></div>
+        <button class="close" type="button" data-close aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body pay-success">
+        <div class="pay-check" aria-hidden="true">✓</div>
+        <p class="muted" style="text-align:center">${esGratis ? 'Ya formas parte de este curso.' : 'Tu compra quedó registrada y ya tienes acceso al curso.'}</p>
+        <div class="checkout-summary">
+          <div><small>Curso</small><b>${esc(curso.titulo)}</b></div>
+          <div><small>Método</small><b>${esc(compra.metodo_pago || 'Inscripción gratuita')}</b></div>
+          <div><small>Referencia</small><b>${esc(compra.referencia)}</b></div>
+          <div class="checkout-total"><small>Total</small><b>${money(compra.total)}</b></div>
+        </div>
+        <p class="fine" style="text-align:center">Pago simulado. No se realizó ningún cargo real.</p>
+        <button class="btn btn-primary btn-block" id="irCurso" type="button">Ir a mi curso</button>
+      </div>`;
+    $('#irCurso').onclick = () => closeModal();
+  }
+
+  async function abrirCompra() {
+    let metodos = [];
+    pagoInstructor = null;
+    if (!esGratis) {
+      try {
+        const [lista, pago] = await Promise.all([
+          api('/api/metodos-pago'),
+          api('/api/instructores/' + curso.instructor_id + '/pago').catch(() => null)
+        ]);
+        metodos = lista;
+        pagoInstructor = pago;
+      } catch (e) { toast(e.message, 'err'); return; }
+    }
+
+    const opciones = metodos.map(m => {
+      const disponible = metodoDisponible(m);
+      return `<label class="pay-opt ${disponible ? '' : 'disabled'}">
+        <input type="radio" name="metodo" value="${m.id}" ${disponible ? '' : 'disabled'}>
+        <span class="pay-opt-ico" aria-hidden="true">${ICONO_PAGO[m.slug] || '💳'}</span>
+        <span class="pay-opt-txt"><b>${esc(m.nombre)}</b><small>${esc(disponible ? (m.descripcion || '') : motivoNoDisponible(m))}</small></span>
+      </label>`;
+    }).join('');
+
+    const primera = metodos.find(metodoDisponible);
+
+    let completada = false;
+    openModal(`<div class="modal-head">
+        <div><h2>${esGratis ? 'Confirmar inscripción' : 'Finalizar compra'}</h2><p class="muted small" style="margin:.2rem 0 0">${esc(curso.titulo)}</p></div>
+        <button class="close" type="button" data-close aria-label="Cerrar">✕</button>
+      </div>
+      <form class="modal-body" id="compraForm" novalidate>
+        <div class="checkout-summary">
+          <div><small>Curso</small><b>${esc(curso.titulo)}</b></div>
+          <div><small>Instructor</small><b>${esc(curso.instructor.nombre)}</b></div>
+          <div class="checkout-total"><small>Total</small><b>${esGratis ? 'Gratis' : money(curso.precio)}</b></div>
+        </div>
+        ${esGratis ? '<p class="fine">La inscripción gratuita te da acceso inmediato al contenido y al foro.</p>' : `
+          <label>Método de pago <span class="req">*</span></label>
+          <div class="pay-list">${opciones || '<p class="muted small">No hay métodos de pago disponibles.</p>'}</div>
+          <div id="pagoDetalle" class="pago-detalle" style="margin-top:1rem"></div>`}
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit" id="payBtn">${esGratis ? 'Inscribirme' : `Pagar ${money(curso.precio)}`}</button>
+          <button class="btn btn-ghost" type="button" data-close>Cancelar</button>
+        </div>
+      </form>`, { onClose: () => { if (completada) location.reload(); } });
+
+    const form = $('#compraForm');
+
+    function pintarDetalle() {
+      if (esGratis) return;
+      const sel = form.querySelector('input[name="metodo"]:checked');
+      if (!sel) { $('#pagoDetalle').innerHTML = ''; return; }
+      const metodo = metodos.find(m => m.id === Number(sel.value));
+      $('#pagoDetalle').innerHTML = detallePagoHTML(metodo.slug);
+      conectarDetalle(metodo.slug);
+    }
+
+    // La primera opción disponible se marca y su detalle se pinta al abrir.
+    if (primera) {
+      const radio = form.querySelector(`input[value="${primera.id}"]`);
+      if (radio) radio.checked = true;
+    }
+    form.querySelectorAll('input[name="metodo"]').forEach(radio => {
+      radio.addEventListener('change', pintarDetalle);
+    });
+    pintarDetalle();
+
+    form.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const btn = $('#payBtn');
+      const textoOriginal = btn.textContent;
+      const body = { curso_ids: [Number(curso.id)] };
+
+      if (!esGratis) {
+        const sel = form.querySelector('input[name="metodo"]:checked');
+        if (!sel || sel.disabled) return toast('Selecciona un método de pago disponible', 'err');
+        const metodo = metodos.find(m => m.id === Number(sel.value));
+        body.metodo_pago_id = Number(sel.value);
+
+        if (metodo.slug === 'tarjeta') {
+          const revision = validarTarjeta();
+          if (!revision.ok) return mostrarErrorTarjeta(revision);
+          if (revision.rechazo) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Procesando…';
+            await esperar(900);
+            btn.disabled = false;
+            btn.textContent = textoOriginal;
+            return mostrarErrorTarjeta({
+              campo: 'numero',
+              error: 'Pago rechazado por el banco emisor (simulación). Prueba con 4242 4242 4242 4242.'
+            });
+          }
+          body.detalle_pago = revision.detalle;
+        } else if (metodo.slug === 'transferencia') {
+          body.detalle_pago = `Transferencia · ${pagoInstructor?.banco || 'banco'}`;
+        } else if (metodo.slug === 'qr') {
+          body.detalle_pago = 'Pago por QR';
+        } else if (metodo.slug === 'paypal') {
+          body.detalle_pago = 'PayPal';
+        }
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Procesando…';
+      try {
+        await esperar(650);
+        const compra = await api('/api/compras', { method: 'POST', body });
+        completada = true;
+        mostrarComprobante(compra);
+      } catch (e) {
+        toast(e.message, 'err');
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+      }
+    });
+  }
+
+  /* ---------- Contactar al instructor ---------- */
+  const contactar = $('#contactarBtn');
+  if (contactar) contactar.addEventListener('click', async () => {
+    contactar.disabled = true;
+    try {
+      const conv = await api('/api/mensajes/conversaciones', { method: 'POST', body: { usuario_id: curso.instructor_id } });
+      location.href = `/mensajes.html?c=${conv.id}`;
+    } catch (e) {
+      toast(e.message, 'err');
+      contactar.disabled = false;
+    }
+  });
+
+  /* ---------- Foro ---------- */
+  let foro = null;
+  if (puedeEntrar) iniciarForo();
+
+  async function iniciarForo() {
+    try {
+      foro = await api(`/api/cursos/${encodeURIComponent(slug)}/foro`);
+      pintarForo();
+    } catch (e) {
+      $('#foroEstado').textContent = 'No disponible';
+      $('#foroRoot').innerHTML = `<div class="empty" style="padding:1.5rem 0"><span class="empty-ico">💬</span><b>No se pudo cargar el foro</b><small>${esc(e.message)}</small></div>`;
+    }
+  }
+
+  function pintarForo() {
+    const estado = $('#foroEstado');
+    if (!estado) return;
+    estado.textContent = `${foro.hilos.length} hilo${foro.hilos.length === 1 ? '' : 's'}`;
+    const lista = foro.hilos.length
+      ? foro.hilos.map(hilo => `<button class="foro-hilo" type="button" data-hilo="${hilo.id}">
+          <span class="fh-main">
+            <span class="fh-title">${hilo.fijado ? '<span class="pin" title="Fijado">📌</span>' : ''}${esc(hilo.titulo)}${hilo.cerrado ? ' <span class="badge badge-outline">Cerrado</span>' : ''}</span>
+            <small>${esc(hilo.autor)}${hilo.autor_rol === 'instructor' ? ' · Instructor' : ''} · ${DS.formatDate(hilo.actualizado)}</small>
+          </span>
+          <span class="fh-count" title="Respuestas">${hilo.respuestas}<small>resp.</small></span>
+        </button>`).join('')
+      : `<div class="empty" style="padding:1.4rem 0"><span class="empty-ico">💬</span><b>Sé el primero en preguntar</b><small>Comparte tu duda y el instructor o tus compañeros responderán.</small></div>`;
+
+    $('#foroRoot').innerHTML = `
+      <form class="foro-form" id="foroForm">
+        <div class="foro-form-head"><b>Nuevo hilo</b><small>Título claro y el contexto de tu duda.</small></div>
+        <input id="foroTitulo" placeholder="¿Sobre qué quieres preguntar?" required minlength="5" maxlength="140" aria-label="Título del hilo">
+        <textarea id="foroContenido" rows="3" placeholder="Cuéntanos qué intentaste y qué necesitas resolver…" required minlength="10" maxlength="5000" aria-label="Contenido del hilo"></textarea>
+        <div class="foro-form-foot"><span class="muted small">Visible para las personas inscritas en este curso.</span><button class="btn btn-primary btn-sm" type="submit">Publicar hilo</button></div>
+      </form>
+      <div class="foro-list">${lista}</div>`;
+
+    $('#foroForm').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const btn = ev.currentTarget.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        await api(`/api/cursos/${encodeURIComponent(slug)}/foro`, {
+          method: 'POST',
+          body: { titulo: $('#foroTitulo').value, contenido: $('#foroContenido').value }
+        });
+        toast('Hilo publicado');
+        await iniciarForo();
+      } catch (e) {
+        toast(e.message, 'err');
+        btn.disabled = false;
+      }
+    });
+
+    $('#foroRoot').querySelectorAll('[data-hilo]').forEach(b => {
+      b.addEventListener('click', () => abrirHilo(b.dataset.hilo));
+    });
+  }
+
+  async function abrirHilo(id) {
+    let datos;
+    try { datos = await api('/api/foro/hilos/' + id); }
+    catch (e) { return toast(e.message, 'err'); }
+    const h = datos.hilo;
+    const mod = datos.puede_moderar;
+    const respuestas = datos.respuestas.length
+      ? datos.respuestas.map(r => `<article class="foro-resp">
+          <div class="fr-head"><b>${esc(r.autor)}</b>${r.autor_rol === 'instructor' ? '<span class="badge badge-accent">Instructor</span>' : ''}<time>${DS.formatDate(r.creado)}</time>${(mod || r.usuario_id === user.id) ? `<button class="link-danger" type="button" data-del-resp="${r.id}" aria-label="Eliminar respuesta">Eliminar</button>` : ''}</div>
+          <p>${esc(r.contenido)}</p>
+        </article>`).join('')
+      : '<p class="muted small">Todavía no hay respuestas.</p>';
+
+    openModal(`<div class="modal-head">
+        <div><h2>${esc(h.titulo)}</h2><p class="muted small" style="margin:.2rem 0 0">${esc(h.autor)} · ${DS.formatDate(h.creado)} ${h.cerrado ? '· Cerrado' : ''}</p></div>
+        <button class="close" type="button" data-close aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body foro-hilo-detalle">
+        <p class="foro-cuerpo">${esc(h.contenido)}</p>
+        <div class="foro-respuestas">${respuestas}</div>
+        ${h.cerrado && !mod
+          ? '<div class="alert warn small">Este hilo está cerrado. Solo el instructor puede responder.</div>'
+          : `<form id="respuestaForm" class="foro-reply">
+              <label for="respuestaTxt">Responder</label>
+              <textarea id="respuestaTxt" rows="3" required minlength="2" maxlength="5000" placeholder="Escribe tu respuesta…"></textarea>
+              <div class="form-actions"><button class="btn btn-primary btn-sm" type="submit">Publicar respuesta</button></div>
+            </form>`}
+        ${mod ? `<div class="foro-mod">
+          <span class="muted small">Moderación</span>
+          <button class="btn btn-ghost btn-sm" type="button" data-moderar="fijar">${h.fijado ? 'Quitar fijado' : 'Fijar hilo'}</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-moderar="cerrar">${h.cerrado ? 'Reabrir hilo' : 'Cerrar hilo'}</button>
+          <button class="btn btn-ghost btn-sm link-danger" type="button" data-moderar="eliminar">Eliminar hilo</button>
+        </div>` : ''}
+      </div>`, { large: true, onClose: () => iniciarForo() });
+
+    const form = $('#respuestaForm');
+    if (form) form.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const btn = ev.currentTarget.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        await api(`/api/foro/hilos/${id}/respuestas`, { method: 'POST', body: { contenido: $('#respuestaTxt').value } });
+        toast('Respuesta publicada');
+        await abrirHilo(id);
+      } catch (e) {
+        toast(e.message, 'err');
+        btn.disabled = false;
+      }
+    });
+
+    const box = $('#dsModal .modal');
+    box.querySelectorAll('[data-del-resp]').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar esta respuesta?')) return;
+      try {
+        await api('/api/foro/respuestas/' + b.dataset.delResp, { method: 'DELETE' });
+        toast('Respuesta eliminada');
+        await abrirHilo(id);
+      } catch (e) { toast(e.message, 'err'); }
+    }));
+
+    box.querySelectorAll('[data-moderar]').forEach(b => b.addEventListener('click', async () => {
+      const accion = b.dataset.moderar;
+      try {
+        if (accion === 'eliminar') {
+          if (!confirm('¿Eliminar este hilo y todas sus respuestas?')) return;
+          await api('/api/foro/hilos/' + id, { method: 'DELETE' });
+          closeModal();
+          toast('Hilo eliminado');
+          await iniciarForo();
+          return;
+        }
+        await api(`/api/foro/hilos/${id}/${accion}`, { method: 'POST', body: {} });
+        toast(accion === 'fijar' ? 'Visibilidad del hilo actualizada' : 'Estado del hilo actualizado');
+        await abrirHilo(id);
+      } catch (e) { toast(e.message, 'err'); }
+    }));
+  }
+
+  if (location.hash === '#foro') setTimeout(() => $('#foro')?.scrollIntoView({ block: 'start' }), 100);
+})();
+</script>
+</body>
+</html>

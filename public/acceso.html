@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acceder · DevStore</title>
+<meta name="description" content="Inicia sesión o crea tu cuenta de estudiante o instructor en DevStore.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<script>try{var t=localStorage.getItem('devstore_theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<div id="hdr"></div>
+
+<main id="main" class="auth-page">
+  <div class="container auth-layout">
+    <aside class="auth-aside">
+      <span class="eyebrow">Tu cuenta DevStore</span>
+      <h2>Aprender y enseñar, en un mismo lugar</h2>
+      <p>El catálogo es público. Para guardar tus cursos, inscribirte o publicar contenido necesitas una cuenta.</p>
+      <ul class="auth-points">
+        <li><span class="dot">1</span><span><b>Estudiantes</b>Perfil con intereses, nivel y datos de contacto para una experiencia personalizada.</span></li>
+        <li><span class="dot">2</span><span><b>Instructores</b>Registro extendido con GitHub, portafolio o credenciales. La cuenta se revisa antes de publicar.</span></li>
+        <li><span class="dot">3</span><span><b>Privacidad</b>Los clientes no acceden a estadísticas de cursos y los instructores no ven datos de compradores.</span></li>
+      </ul>
+    </aside>
+
+    <div class="auth-card">
+      <div class="tabs" role="tablist" aria-label="Tipo de acceso">
+        <button class="tab on" id="tabLogin" data-tab="login" type="button" role="tab" aria-selected="true">Iniciar sesión</button>
+        <button class="tab" id="tabCliente" data-tab="cliente" type="button" role="tab" aria-selected="false">Crear cuenta</button>
+        <button class="tab" id="tabInstructor" data-tab="instructor" type="button" role="tab" aria-selected="false">Enseñar</button>
+      </div>
+
+      <div id="authError" class="alert err hide" role="alert"></div>
+
+      <form id="formLogin" novalidate>
+        <label for="lEmail">Email</label>
+        <input id="lEmail" type="email" autocomplete="username" placeholder="tu@correo.com" required>
+        <label for="lPass">Contraseña</label>
+        <input id="lPass" type="password" autocomplete="current-password" placeholder="Tu contraseña" required>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Entrar</button></div>
+        <p class="hint center" style="margin-top:.8rem">¿Aún no tienes cuenta? <button class="btn-link" type="button" data-go="cliente">Crea una gratis</button></p>
+      </form>
+
+      <form id="formCliente" class="hide" novalidate>
+        <div class="form-grid">
+          <div><label for="cNombre">Nombre <span class="req">*</span></label><input id="cNombre" autocomplete="given-name" required></div>
+          <div><label for="cApellidos">Apellidos <span class="req">*</span></label><input id="cApellidos" autocomplete="family-name" required></div>
+          <div class="full"><label for="cEmail">Email <span class="req">*</span></label><input id="cEmail" type="email" autocomplete="email" required></div>
+          <div class="full"><label for="cPass">Contraseña <span class="req">*</span></label><input id="cPass" type="password" autocomplete="new-password" minlength="8" placeholder="Mínimo 8 caracteres" required></div>
+          <div><label for="cTel">Teléfono <span class="req">*</span></label><input id="cTel" type="tel" autocomplete="tel" placeholder="+34 600 000 000" required></div>
+          <div><label for="cPais">País <span class="req">*</span></label><input id="cPais" autocomplete="country-name" required></div>
+          <div><label for="cCiudad">Ciudad</label><input id="cCiudad" autocomplete="address-level2"></div>
+          <div><label for="cNivel">Nivel de experiencia <span class="req">*</span></label>
+            <select id="cNivel" required><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzado">Avanzado</option></select>
+          </div>
+          <div class="full">
+            <label>Áreas de interés <span class="req">*</span></label>
+            <div class="interest-grid" id="intereses"><span class="muted small">Cargando áreas…</span></div>
+          </div>
+        </div>
+        <label class="check"><input id="cTerminos" type="checkbox" required><span>Acepto los términos de uso y el código de conducta de DevStore.</span></label>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Crear cuenta de estudiante</button></div>
+      </form>
+
+      <form id="formInstructor" class="hide" novalidate>
+        <div class="form-grid">
+          <div><label for="iNombre">Nombre <span class="req">*</span></label><input id="iNombre" autocomplete="given-name" required></div>
+          <div><label for="iApellidos">Apellidos <span class="req">*</span></label><input id="iApellidos" autocomplete="family-name" required></div>
+          <div class="full"><label for="iEmail">Email <span class="req">*</span></label><input id="iEmail" type="email" autocomplete="email" required></div>
+          <div class="full"><label for="iPass">Contraseña <span class="req">*</span></label><input id="iPass" type="password" autocomplete="new-password" minlength="8" placeholder="Mínimo 8 caracteres" required></div>
+          <div class="full"><label for="iTitular">Titular profesional <span class="req">*</span></label><input id="iTitular" placeholder="Ej. Desarrolladora full-stack y formadora" required></div>
+          <div><label for="iEspecialidad">Especialidad <span class="req">*</span></label><input id="iEspecialidad" placeholder="Ej. Frontend, Node.js y bases de datos" required></div>
+          <div><label for="iAnios">Años de experiencia <span class="req">*</span></label><input id="iAnios" type="number" min="0" max="70" value="3" required></div>
+          <div><label for="iPais">País <span class="req">*</span></label><input id="iPais" autocomplete="country-name" required></div>
+          <div><label for="iTel">Teléfono</label><input id="iTel" type="tel" autocomplete="tel"></div>
+          <div class="full"><label for="iBio">Biografía <span class="req">*</span></label><textarea id="iBio" placeholder="Cuéntanos tu experiencia, qué enseñas y cómo trabajas (mínimo 40 caracteres)." required></textarea></div>
+        </div>
+        <fieldset>
+          <legend>Evidencia de habilidades</legend>
+          <p class="hint" style="margin-top:0">Añade al menos una de estas evidencias. El equipo de DevStore revisará tu solicitud antes de habilitar la publicación.</p>
+          <label for="iGithub">GitHub</label><input id="iGithub" type="url" placeholder="https://github.com/tu-usuario">
+          <label for="iPortafolio">Portafolio</label><input id="iPortafolio" type="url" placeholder="https://tu-portafolio.dev">
+          <label for="iLinkedin">LinkedIn</label><input id="iLinkedin" type="url" placeholder="https://linkedin.com/in/tu-perfil">
+          <label for="iCredenciales">Credenciales, certificaciones o experiencia relevante</label><textarea id="iCredenciales" placeholder="Ej. Certificación AWS, 8 años en backend, proyectos open source…"></textarea>
+        </fieldset>
+        <label class="check"><input id="iTerminos" type="checkbox" required><span>Acepto los términos, el código de conducta y la revisión de mi evidencia profesional.</span></label>
+        <div class="form-actions"><button class="btn btn-primary btn-block" type="submit">Enviar solicitud de instructor</button></div>
+        <p class="hint">Tu cuenta quedará <b>pendiente de verificación</b>. Podrás preparar borradores, pero no publicar hasta ser aprobada.</p>
+      </form>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container footer-in">
+    <div><b>DevStore</b> · Aprende desarrollo de software con proyectos reales.</div>
+    <div class="footer-links"><a href="/cursos.html">Cursos</a><a href="/">Inicio</a></div>
+  </div>
+</footer>
+
+<script src="/js/app.js"></script>
+<script>
+(async () => {
+  const { $, $$, esc, api, toast, params } = DS;
+  await DS.mountHeader('');
+  const p = params();
+  const nextRaw = p.get('next') || '';
+  const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '';
+  const tabs = { login: $('#formLogin'), cliente: $('#formCliente'), instructor: $('#formInstructor') };
+
+  function showTab(name) {
+    const tab = tabs[name] ? name : 'login';
+    Object.entries(tabs).forEach(([k, form]) => form.classList.toggle('hide', k !== tab));
+    $$('.tab').forEach(t => {
+      const on = t.dataset.tab === tab;
+      t.classList.toggle('on', on);
+      t.setAttribute('aria-selected', String(on));
+    });
+    $('#authError').classList.add('hide');
+    history.replaceState(null, '', tab === 'login' ? location.pathname : `${location.pathname}?tab=${tab}`);
+  }
+
+  $$('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-go]');
+    if (b) showTab(b.dataset.go);
+  });
+  showTab(p.get('tab') === 'instructor' ? 'instructor' : p.get('tab') === 'cliente' ? 'cliente' : 'login');
+
+  function error(msg) {
+    const box = $('#authError');
+    box.textContent = msg;
+    box.classList.remove('hide');
+    box.scrollIntoView({ behavior: DS.reduce ? 'auto' : 'smooth', block: 'center' });
+  }
+
+  function destinoPorRol(rol) {
+    if (next) return next;
+    if (rol === 'administrador') return '/admin.html';
+    if (rol === 'instructor') return '/instructor.html';
+    return '/cursos.html';
+  }
+
+  async function enviar(form, fn) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.classList.add('loading');
+    try { await fn(); }
+    catch (e) { error(e.message); }
+    finally { btn.disabled = false; btn.classList.remove('loading'); }
+  }
+
+  $('#formLogin').addEventListener('submit', e => {
+    e.preventDefault();
+    enviar(e.currentTarget, async () => {
+      const r = await api('/api/auth/login', { method: 'POST', body: { email: $('#lEmail').value, password: $('#lPass').value } });
+      toast('Sesión iniciada');
+      location.href = destinoPorRol(r.rol);
+    });
+  });
+
+  $('#formCliente').addEventListener('submit', e => {
+    e.preventDefault();
+    if (!$('#cTerminos').checked) return error('Debes aceptar los términos para crear la cuenta.');
+    const areas = $$('#intereses input:checked').map(i => i.value);
+    if (!areas.length) return error('Selecciona al menos un área de interés.');
+    enviar(e.currentTarget, async () => {
+      await api('/api/auth/registro/cliente', { method: 'POST', body: {
+        nombre: $('#cNombre').value, apellidos: $('#cApellidos').value, email: $('#cEmail').value,
+        password: $('#cPass').value, telefono: $('#cTel').value, pais: $('#cPais').value,
+        ciudad: $('#cCiudad').value, nivel_experiencia: $('#cNivel').value,
+        areas_interes: areas, acepta_terminos: true
+      } });
+      toast('¡Cuenta creada! Bienvenido a DevStore.');
+      location.href = next || '/cursos.html';
+    });
+  });
+
+  $('#formInstructor').addEventListener('submit', e => {
+    e.preventDefault();
+    if (!$('#iTerminos').checked) return error('Debes aceptar los términos y la revisión de evidencia.');
+    enviar(e.currentTarget, async () => {
+      await api('/api/auth/registro/instructor', { method: 'POST', body: {
+        nombre: $('#iNombre').value, apellidos: $('#iApellidos').value, email: $('#iEmail').value,
+        password: $('#iPass').value, titular: $('#iTitular').value, biografia: $('#iBio').value,
+        especialidad: $('#iEspecialidad').value, anios_experiencia: Number($('#iAnios').value),
+        pais: $('#iPais').value, telefono: $('#iTel').value, github_url: $('#iGithub').value,
+        portafolio_url: $('#iPortafolio').value, linkedin_url: $('#iLinkedin').value,
+        credenciales: $('#iCredenciales').value, acepta_terminos: true
+      } });
+      toast('Solicitud enviada. Revisaremos tu evidencia profesional.');
+      location.href = '/instructor.html';
+    });
+  });
+
+  try {
+    const cats = await api('/api/categorias');
+    $('#intereses').innerHTML = cats.map(c => `<label class="check"><input type="checkbox" value="${esc(c.slug)}"><span>${esc(c.icono || '')} ${esc(c.nombre)}</span></label>`).join('');
+  } catch {
+    $('#intereses').innerHTML = '<span class="muted small">No se pudieron cargar las áreas. Recarga la página.</span>';
+  }
+})();
+</script>
+</body>
+</html>
