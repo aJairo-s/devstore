@@ -36,6 +36,7 @@
   let categorias = [];
   let analitica = null;
   let cobros = null;
+  let pagosQr = [];
 
   function verificacion() {
     const v = resumen?.verificacion || {};
@@ -110,6 +111,51 @@
     </section>`;
   }
 
+  function panelPagosQr() {
+    const filas = pagosQr.length ? pagosQr.map(p => `<article class="course-row" data-pago="${p.compra_id}">
+        <div class="cr-main">
+          <div class="row"><b>${esc(p.items.map(i => i.titulo).join(', '))}</b>${statusBadge('pendiente')}</div>
+          <small>Referencia <b>${esc(p.referencia || p.pago_referencia || '—')}</b> · ${esc(DS.formatDate(p.creado))}${p.pago_detalle ? ' · ' + esc(p.pago_detalle) : ''}</small>
+        </div>
+        <div><span class="price">${money(p.total)}</span></div>
+        <div class="cr-actions">
+          <button class="btn btn-primary btn-sm" type="button" data-aprobar-qr="${p.compra_id}">Confirmar pago</button>
+          <button class="btn btn-ghost btn-sm link-danger" type="button" data-rechazar-qr="${p.compra_id}">Rechazar</button>
+        </div>
+      </article>`).join('')
+      : '<div class="empty"><span class="empty-ico">✅</span><b>No tienes pagos por QR pendientes</b><small>Cuando un estudiante pague con tu QR, aparecerá aquí para que confirmes la recepción.</small></div>';
+    return `<section class="panel" id="pagos-qr" style="margin-top:1rem">
+      <div class="spread">
+        <div><h2 style="margin:0">Pagos por QR por validar</h2><p class="muted small" style="margin:.2rem 0 0">Revisa en tu app bancaria que el monto haya llegado y autoriza el acceso. No se muestran datos personales del comprador.</p></div>
+        <span class="badge ${pagosQr.length ? 'badge-warn' : 'badge-outline'}">${pagosQr.length} pendiente${pagosQr.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="stack" style="margin-top:1rem">${filas}</div>
+    </section>`;
+  }
+
+  async function resolverPago(id, aprobar, motivo) {
+    await api(`/api/instructor/pagos-qr/${id}/${aprobar ? 'aprobar' : 'rechazar'}`, { method: 'POST', body: aprobar ? {} : { motivo } });
+    toast(aprobar ? 'Pago confirmado. El estudiante ya tiene acceso.' : 'Pago rechazado');
+    await cargar();
+    $('#pagos-qr')?.scrollIntoView({ block: 'start' });
+  }
+
+  function abrirRechazo(id) {
+    openModal(`<div class="modal-head"><div><h2>Rechazar pago</h2><p class="muted small" style="margin:.2rem 0 0">El estudiante recibirá un aviso y no se habilitará el acceso.</p></div><button class="close" type="button" data-close aria-label="Cerrar">✕</button></div>
+      <form id="rechazoForm" class="modal-body">
+        <label for="rMotivo">Motivo (opcional)</label>
+        <textarea id="rMotivo" maxlength="300" placeholder="Ej. No encuentro un depósito por ese monto."></textarea>
+        <div class="form-actions"><button class="btn btn-danger" type="submit">Rechazar pago</button><button class="btn btn-ghost" type="button" data-close>Cancelar</button></div>
+      </form>`);
+    $('#rechazoForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = e.currentTarget.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try { const m = $('#rMotivo').value; closeModal(); await resolverPago(id, false, m); }
+      catch (ex) { toast(ex.message, 'err'); btn.disabled = false; }
+    });
+  }
+
   function panelCobros() {
     const c = cobros || {};
     const opcionesTipo = ['Cuenta de ahorros', 'Cuenta corriente'];
@@ -171,6 +217,7 @@
         <div class="side-user"><span class="avatar">${esc(initials(user.nombre + ' ' + (user.apellidos || '')))}</span><div><b>${esc(user.nombre)} ${esc(user.apellidos || '')}</b><small>Instructor</small></div></div>
         <a href="/instructor.html" class="on">Panel instructor</a>
         <a href="#analitica">Analítica</a>
+        <a href="#pagos-qr">Pagos QR${pagosQr.length ? ` <span class="badge badge-warn">${pagosQr.length}</span>` : ''}</a>
         <a href="#cobros">Cobros</a>
         <a href="/perfil.html">Mi perfil</a>
         <a href="/cursos.html">Catálogo</a>
@@ -188,6 +235,7 @@
           <div class="stat"><small>Estudiantes</small><b>${resumen?.estudiantes || 0}</b><div class="stat-sub">en tus cursos</div></div>
           <div class="stat"><small>Ingresos demo</small><b>${money(resumen?.ingresos || 0)}</b><div class="stat-sub">métricas agregadas</div></div>
         </div>
+        ${panelPagosQr()}
         ${panelAnalitica()}
         ${panelCobros()}
         <section class="panel">
@@ -211,7 +259,17 @@
     $('#cobroForm')?.addEventListener('submit', guardarCobro);
     $('#qrFile')?.addEventListener('change', subirQr);
     if ($('#qrDelete')) $('#qrDelete').onclick = eliminarQr;
+    if (location.hash === '#pagos-qr') setTimeout(() => $('#pagos-qr')?.scrollIntoView({ block: 'start' }), 80);
     root.onclick = async e => {
+      const ap = e.target.closest('[data-aprobar-qr]');
+      if (ap) {
+        ap.disabled = true;
+        try { await resolverPago(ap.dataset.aprobarQr, true); }
+        catch (ex) { toast(ex.message, 'err'); ap.disabled = false; await cargar().catch(() => {}); }
+        return;
+      }
+      const rc = e.target.closest('[data-rechazar-qr]');
+      if (rc) return abrirRechazo(rc.dataset.rechazarQr);
       const b = e.target.closest('[data-submit]');
       if (!b) return;
       b.disabled = true;
@@ -283,10 +341,12 @@
   }
 
   async function cargar() {
-    const [r, cs, an, co] = await Promise.all([
+    const [r, cs, an, co, pq] = await Promise.all([
       api('/api/instructor/resumen'), api('/api/instructor/cursos'),
-      api('/api/instructor/analitica'), api('/api/instructor/pago')
+      api('/api/instructor/analitica'), api('/api/instructor/pago'),
+      api('/api/instructor/pagos-qr')
     ]);
+    pagosQr = pq;
     resumen = r;
     cursos = cs;
     analitica = an;
@@ -317,9 +377,9 @@
   }
 
   try {
-    [resumen, cursos, categorias, analitica, cobros] = await Promise.all([
+    [resumen, cursos, categorias, analitica, cobros, pagosQr] = await Promise.all([
       api('/api/instructor/resumen'), api('/api/instructor/cursos'), api('/api/categorias'),
-      api('/api/instructor/analitica'), api('/api/instructor/pago')
+      api('/api/instructor/analitica'), api('/api/instructor/pago'), api('/api/instructor/pagos-qr')
     ]);
     pintar();
   } catch (e) {

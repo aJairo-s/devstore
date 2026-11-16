@@ -140,7 +140,10 @@ test('Fase 3: pago por QR, datos de cobro y moneda Bs', async t => {
     assert.equal(conQr.status, 201, JSON.stringify(conQr.data));
     assert.equal(conQr.data.metodo_pago_slug, 'qr');
     assert.equal(conQr.data.pago_detalle, 'Pago por QR');
-    assert.equal((await comprador.get(`/api/mis-cursos`)).data.length, 2);
+    // El QR no da acceso hasta que el instructor confirme el pago.
+    assert.equal(conQr.data.estado, 'pendiente');
+    assert.equal(conQr.data.requiere_validacion, true);
+    assert.equal((await comprador.get(`/api/mis-cursos`)).data.length, 1);
   });
 
   await t.test('la interfaz usa Bs y ya no muestra credenciales demo', () => {

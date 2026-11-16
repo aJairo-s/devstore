@@ -223,7 +223,8 @@ function estadisticasInstructor(instructorId) {
 
 function comprasDeCliente(clienteId) {
   const compras = db.prepare(`
-    SELECT c.*, m.nombre AS metodo_pago
+    SELECT c.*, m.nombre AS metodo_pago, m.slug AS metodo_pago_slug,
+      (SELECT p.motivo_rechazo FROM pagos p WHERE p.compra_id=c.id ORDER BY p.id DESC LIMIT 1) AS pago_motivo_rechazo
     FROM compras c LEFT JOIN metodos_pago m ON m.id=c.metodo_pago_id
     WHERE c.cliente_id=? ORDER BY c.id DESC`).all(clienteId);
   const items = db.prepare('SELECT ci.*, cu.titulo, cu.slug FROM compra_items ci JOIN cursos cu ON cu.id=ci.curso_id WHERE ci.compra_id=?');

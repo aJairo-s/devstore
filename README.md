@@ -4,6 +4,7 @@ Plataforma de **cursos de desarrollo de software**. El catálogo es público; la
 
 La Fase 3 añade:
 
+- **Validación del pago por QR**: al pagar por QR la compra queda *pendiente* y el estudiante **no** recibe acceso. El instructor la ve en su panel (sección «Pagos por QR por validar»), comprueba en su banco que el dinero llegó y pulsa **Confirmar pago** (se crea la inscripción y se avisa al estudiante) o **Rechazar** con un motivo opcional (la compra se cancela y el estudiante puede reintentar). El instructor ve referencia, monto, fecha y el Nº de operación opcional que escribió el estudiante, pero nunca sus datos personales.
 - **Pago por QR**: el instructor sube su propio código QR desde el panel y el estudiante lo ve al elegir ese método en el checkout.
 - **Datos de cobro del instructor** para transferencia bancaria y QR, con validación de configuración antes de permitir la compra.
 - **Checkout más realista**: formulario de tarjeta con vista previa y validación local, datos bancarios copiables, pasos para escanear el QR, estado de procesamiento y comprobante.
@@ -140,6 +141,9 @@ uploads/                   Videos y códigos QR subidos (ignorado por git)
 - `GET /api/instructor/pago` · `PUT /api/instructor/pago` — datos de cobro del propio instructor
 - `POST /api/instructor/pago/qr` — multipart, PNG/JPG/WebP hasta 3 MB
 - `DELETE /api/instructor/pago/qr`
+- `GET /api/instructor/pagos-qr` — pagos por QR pendientes de validar (solo de sus cursos)
+- `POST /api/instructor/pagos-qr/:id/aprobar` — confirma el pago y habilita el acceso
+- `POST /api/instructor/pagos-qr/:id/rechazar` — body `{ "motivo": "..." }` opcional; cancela la compra
 
 ### Administración
 

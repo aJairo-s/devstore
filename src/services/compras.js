@@ -236,9 +236,6 @@ function resolverPagoQr(compraId, instructorId, aprobar, motivo = null) {
   const motivoLimpio = typeof motivo === 'string'
     ? motivo.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 300)
     : '';
-  if (!aprobar && motivoLimpio.length > 300)
-    throw new ApiError(400, 'El motivo es demasiado largo');
-
   if (aprobar) {
     db.transaction(() => {
       const cambiado = db.prepare(`UPDATE compras SET estado='pagada', actualizado=CURRENT_TIMESTAMP
@@ -285,4 +282,7 @@ function compraDeCliente(id, usuario) {
   return compra;
 }
 
-module.exports = { metodosPago, crearCompra, compraDeCliente, compraConItems };
+module.exports = {
+  metodosPago, crearCompra, compraDeCliente, compraConItems,
+  pagosPendientesInstructor, resolverPagoQr
+};

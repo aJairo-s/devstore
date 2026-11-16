@@ -12,6 +12,7 @@ const {
 const { parseYoutube } = require('../utils/youtube');
 const { slugUnico, SELECT_RESUMEN, publico, estadisticasInstructor } = require('../services/cursos');
 const { analiticaInstructor } = require('../services/analitica');
+const { pagosPendientesInstructor, resolverPagoQr } = require('../services/compras');
 
 const router = express.Router();
 const NIVELES = ['principiante', 'intermedio', 'avanzado'];
@@ -227,6 +228,20 @@ function validarCurso(b, { parcial = false } = {}) {
 router.get('/resumen', asyncHandler(async (req, res) => {
   const perfil = db.prepare('SELECT estado_verificacion,motivo_rechazo FROM perfiles_instructor WHERE usuario_id=?').get(req.user.id);
   res.json({ ...estadisticasInstructor(req.user.id), verificacion: perfil || null });
+}));
+
+/* ---------- Validación de pagos por QR ---------- */
+// Lista solo compras QR pendientes de los cursos del instructor, sin datos del comprador.
+router.get('/pagos-qr', asyncHandler(async (req, res) => {
+  res.json(pagosPendientesInstructor(req.user.id));
+}));
+
+router.post('/pagos-qr/:id/aprobar', asyncHandler(async (req, res) => {
+  res.json(resolverPagoQr(req.params.id, req.user.id, true));
+}));
+
+router.post('/pagos-qr/:id/rechazar', asyncHandler(async (req, res) => {
+  res.json(resolverPagoQr(req.params.id, req.user.id, false, (req.body || {}).motivo));
 }));
 
 router.get('/analitica', asyncHandler(async (req, res) => {

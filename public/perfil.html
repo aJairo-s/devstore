@@ -194,7 +194,7 @@
     try {
       const compras = await api('/api/mis-compras');
       $('#misCompras').innerHTML = compras.length ? `<table><thead><tr><th>Compra</th><th>Fecha</th><th>Cursos</th><th>Método</th><th>Total</th><th>Estado</th></tr></thead><tbody>
-        ${compras.map(c => `<tr><td>#${c.id}<br><small class="muted">${esc(c.referencia || '')}</small></td><td>${esc(formatDate(c.creado))}</td><td>${c.items.map(i => esc(i.titulo)).join('<br>')}</td><td>${esc(c.metodo_pago || '—')}</td><td>${money(c.total)}</td><td>${statusBadge(c.estado)}</td></tr>`).join('')}
+        ${compras.map(c => `<tr><td>#${c.id}<br><small class="muted">${esc(c.referencia || '')}</small></td><td>${esc(formatDate(c.creado))}</td><td>${c.items.map(i => esc(i.titulo)).join('<br>')}</td><td>${esc(c.metodo_pago || '—')}</td><td>${money(c.total)}</td><td>${statusBadge(c.estado)}${c.estado === 'pendiente' && c.metodo_pago_slug === 'qr' ? '<br><small class="muted">Esperando confirmación del instructor</small>' : ''}${c.estado === 'cancelada' && c.pago_motivo_rechazo ? `<br><small class="muted">${esc(c.pago_motivo_rechazo)}</small>` : ''}</td></tr>`).join('')}
       </tbody></table>` : '<div class="empty"><b>Sin compras registradas</b><small>Las compras aparecerán aquí cuando se active el flujo de pago.</small></div>';
     } catch (e) { $('#misCompras').innerHTML = `<div class="empty"><b>No se pudieron cargar tus compras</b><small>${esc(e.message)}</small></div>`; }
   }

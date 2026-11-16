@@ -327,7 +327,9 @@
             <li>Escanea el código del instructor.</li>
             <li>Verifica el monto y confirma la operación.</li>
           </ol>
-          <p class="fine">QR de demostración. Al confirmar aquí, la compra se registra como pagada al instante.</p>
+          <label for="qrOperacion" style="margin-top:.6rem">Nº de operación o comprobante <small class="muted">(opcional)</small></label>
+          <input id="qrOperacion" maxlength="60" placeholder="Ej. 00123456" autocomplete="off">
+          <p class="fine">Después de pagar, pulsa el botón de abajo. Tu acceso se activará cuando el instructor confirme que recibió el dinero.</p>
         </div>
       </div>`;
     }
@@ -410,7 +412,30 @@
     });
   }
 
+  function mostrarPendiente(compra) {
+    const box = document.querySelector('#dsModal .modal');
+    if (!box) return;
+    box.innerHTML = `<div class="modal-head">
+        <div><h2>Pago en revisión</h2><p class="muted small" style="margin:.2rem 0 0">Esperando confirmación del instructor</p></div>
+        <button class="close" type="button" data-close aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body pay-success">
+        <div class="pay-check" aria-hidden="true" style="background:rgba(240,160,32,.15);color:#fbbf24">⏳</div>
+        <p class="muted" style="text-align:center">Registramos tu pago por QR. El instructor revisará que el dinero haya llegado y, al confirmarlo, se habilitará tu acceso. Te avisaremos con una notificación.</p>
+        <div class="checkout-summary">
+          <div><small>Curso</small><b>${esc(curso.titulo)}</b></div>
+          <div><small>Método</small><b>${esc(compra.metodo_pago || 'Pago por QR')}</b></div>
+          <div><small>Referencia</small><b>${esc(compra.referencia)}</b></div>
+          <div class="checkout-total"><small>Total</small><b>${money(compra.total)}</b></div>
+        </div>
+        <p class="fine" style="text-align:center">Puedes seguir el estado en <a href="/perfil.html#mis-compras">Mis compras</a>. Si tienes dudas, escribe al instructor indicando esta referencia.</p>
+        <button class="btn btn-primary btn-block" id="irCurso" type="button">Entendido</button>
+      </div>`;
+    $('#irCurso').onclick = () => closeModal();
+  }
+
   function mostrarComprobante(compra) {
+    if (compra.requiere_validacion) return mostrarPendiente(compra);
     const box = document.querySelector('#dsModal .modal');
     if (!box) return;
     box.innerHTML = `<div class="modal-head">
@@ -529,7 +554,8 @@
         } else if (metodo.slug === 'transferencia') {
           body.detalle_pago = `Transferencia · ${pagoInstructor?.banco || 'banco'}`;
         } else if (metodo.slug === 'qr') {
-          body.detalle_pago = 'Pago por QR';
+          const op = ($('#qrOperacion')?.value || '').trim();
+          body.detalle_pago = op ? `Pago por QR · Op. ${op}` : 'Pago por QR';
         } else if (metodo.slug === 'paypal') {
           body.detalle_pago = 'PayPal';
         }
