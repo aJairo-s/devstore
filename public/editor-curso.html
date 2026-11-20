@@ -119,7 +119,7 @@
             <h3>Buenas prácticas</h3>
             <ul class="auth-points small" style="margin:0">
               <li><span class="dot">✓</span><span>Una sección por bloque temático y lecciones de 5–20 min.</span></li>
-              <li><span class="dot">✓</span><span>Marca como vista previa la primera lección para captar estudiantes.</span></li>
+              <li><span class="dot">✓</span><span>Los videos solo se habilitan para estudiantes inscritos en el curso.</span></li>
               <li><span class="dot">✓</span><span>Los videos locales se sirven protegidos y solo a quien tiene acceso.</span></li>
             </ul>
           </section>
@@ -182,7 +182,7 @@
           ${s.lecciones.length ? s.lecciones.map((l, li) => `
             <div class="lesson-item">
               <span class="badge ${l.tipo_video ? 'badge-info' : 'badge-outline'}">${l.tipo_video === 'youtube' ? '▶ YouTube' : l.tipo_video === 'archivo' ? '📁 Archivo' : 'Sin video'}</span>
-              <div class="li-main"><b>${esc(l.titulo)}</b><small>${esc(formatDuration(l.duracion_seg))}${l.es_preview ? ' · Vista previa' : ''}</small></div>
+              <div class="li-main"><b>${esc(l.titulo)}</b><small>${esc(formatDuration(l.duracion_seg))}</small></div>
               <div class="icon-actions">
                 <button class="btn btn-ghost" type="button" data-act="up-lesson" data-id="${l.id}" data-sec="${s.id}" ${li === 0 ? 'disabled' : ''} aria-label="Subir lección">↑</button>
                 <button class="btn btn-ghost" type="button" data-act="down-lesson" data-id="${l.id}" data-sec="${s.id}" ${li === s.lecciones.length - 1 ? 'disabled' : ''} aria-label="Bajar lección">↓</button>
@@ -316,14 +316,13 @@
           <input id="lTitulo" value="${esc(leccion?.titulo || '')}" required maxlength="160">
           <label for="lDesc">Descripción</label>
           <textarea id="lDesc">${esc(leccion?.descripcion || '')}</textarea>
-          <div class="form-grid-3">
+          <div class="form-grid">
             <div><label for="lDur">Duración (min)</label><input id="lDur" type="number" min="0" max="1440" value="${leccion?.duracion_seg ? Math.round(leccion.duracion_seg / 60) : ''}"></div>
             <div><label for="lTipo">Video</label><select id="lTipo">
               <option value="" ${tipo === '' ? 'selected' : ''}>Sin video (borrador)</option>
               <option value="youtube" ${tipo === 'youtube' ? 'selected' : ''}>YouTube</option>
               <option value="archivo" ${tipo === 'archivo' ? 'selected' : ''}>Archivo local</option>
             </select></div>
-            <div><label>Vista previa</label><label class="check" style="margin-top:.55rem"><input id="lPreview" type="checkbox" ${leccion?.es_preview ? 'checked' : ''}><span>Lección gratuita</span></label></div>
           </div>
           <div id="ytGroup" class="${tipo === 'youtube' ? '' : 'hide'}">
             <label for="lYoutube">URL de YouTube <span class="req">*</span></label>
@@ -359,7 +358,7 @@
         titulo: box.querySelector('#lTitulo').value,
         descripcion: box.querySelector('#lDesc').value,
         duracion_seg: durMin === '' ? null : Math.round(Number(durMin) * 60),
-        es_preview: box.querySelector('#lPreview').checked
+        es_preview: false
       };
       if (tipoActual === 'youtube') {
         const yt = box.querySelector('#lYoutube').value.trim();

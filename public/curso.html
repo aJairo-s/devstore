@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Curso · DevStore</title>
-<meta name="description" content="Detalle del curso, temario, instructor y lecciones de vista previa.">
+<meta name="description" content="Detalle del curso, temario, instructor y lecciones en video con acceso al comprar.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -56,19 +56,22 @@
   const totalSecciones = curso.secciones.length;
   const horas = formatDuration(curso.duracion_seg);
   const puedeEntrar = curso.acceso_completo;
+  const pagoPendiente = curso.pago_pendiente || null;
   const esGratis = Number(curso.precio) === 0;
   const esPropietario = user && user.rol === 'instructor' && curso.instructor_id === user.id;
   const esAdmin = user && user.rol === 'administrador';
-  const puedeComprar = user && user.rol === 'cliente' && !puedeEntrar && curso.estado === 'aprobado';
+  const puedeComprar = user && user.rol === 'cliente' && !puedeEntrar && !pagoPendiente && curso.estado === 'aprobado';
   const next = encodeURIComponent(location.pathname + location.search);
 
   const accion = puedeEntrar
     ? `<a class="btn btn-primary btn-block" href="#playerCard">Ir al contenido</a>${puedeEntrar ? '<a class="btn btn-soft btn-block" href="#foro" style="margin-top:.5rem">Foro del curso</a>' : ''}`
-    : puedeComprar
-      ? `<button class="btn btn-primary btn-block" id="comprarBtn" type="button">${esGratis ? 'Inscribirme gratis' : 'Comprar ahora'}</button><p class="fine">${esGratis ? 'Este curso es gratuito: la inscripción es inmediata.' : 'Pago simulado de demostración. No se realiza ningún cargo real.'}</p>`
-      : user
-        ? `<button class="btn btn-primary btn-block" type="button" disabled>${curso.estado === 'aprobado' ? 'Solo cuentas de cliente' : 'Curso no publicado'}</button><p class="fine">${curso.estado === 'aprobado' ? 'Inicia sesión con una cuenta de cliente para inscribirte en este curso.' : 'Este curso todavía no está disponible para inscripción.'}</p>`
-        : `<a class="btn btn-primary btn-block" href="/acceso.html?next=${next}">Inicia sesión para acceder</a><p class="fine">Crea una cuenta gratuita para guardar tu progreso y acceder a tus cursos.</p>`;
+    : pagoPendiente
+      ? `<div class="alert warn"><b>Pago en revisión</b><br><small>El instructor debe confirmar tu pago${pagoPendiente.referencia ? ` (ref. <b>${esc(pagoPendiente.referencia)}</b>)` : ''} antes de habilitar el acceso.</small></div><button class="btn btn-primary btn-block" type="button" disabled style="margin-top:.6rem">Esperando validación</button><p class="fine">Te avisaremos cuando el instructor confirme la recepción del dinero.</p>`
+      : puedeComprar
+        ? `<button class="btn btn-primary btn-block" id="comprarBtn" type="button">${esGratis ? 'Inscribirme gratis' : 'Comprar ahora'}</button><p class="fine">${esGratis ? 'Este curso es gratuito: la inscripción es inmediata.' : 'Pago simulado de demostración. No se realiza ningún cargo real.'}</p>`
+        : user
+          ? `<button class="btn btn-primary btn-block" type="button" disabled>${curso.estado === 'aprobado' ? 'Solo cuentas de cliente' : 'Curso no publicado'}</button><p class="fine">${curso.estado === 'aprobado' ? 'Inicia sesión con una cuenta de cliente para inscribirte en este curso.' : 'Este curso todavía no está disponible para inscripción.'}</p>`
+          : `<a class="btn btn-primary btn-block" href="/acceso.html?next=${next}">Inicia sesión para acceder</a><p class="fine">Crea una cuenta gratuita para guardar tu progreso y acceder a tus cursos.</p>`;
 
   root.innerHTML = `
     <nav class="breadcrumb" aria-label="Migas de pan">
@@ -112,11 +115,10 @@
               </button>
               <div class="acc-body ${i === 0 ? 'open' : ''}" id="sec-${s.id}">
                 ${s.lecciones.map(l => {
-                  const locked = !puedeEntrar && !l.es_preview;
-                  return `<button class="lesson-row ${l.es_preview ? 'preview' : ''} ${locked ? 'locked' : ''}" type="button" data-lesson="${l.id}" data-title="${esc(l.titulo)}" ${locked ? 'aria-disabled="true"' : ''}>
+                  const locked = !puedeEntrar;
+                  return `<button class="lesson-row ${locked ? 'locked' : ''}" type="button" data-lesson="${l.id}" data-title="${esc(l.titulo)}" ${locked ? 'aria-disabled="true"' : ''}>
                     <span class="l-ico" aria-hidden="true">${locked ? '🔒' : '▶'}</span>
                     <span>${esc(l.titulo)}</span>
-                    ${l.es_preview ? '<span class="l-tag">Vista previa</span>' : ''}
                     <span class="l-dur">${esc(formatDuration(l.duracion_seg))}</span>
                   </button>`;
                 }).join('')}
@@ -156,9 +158,9 @@
         <section class="panel" id="playerCard">
           <div class="player-head"><b>Reproductor</b><small id="playerState">Selecciona una lección</small></div>
           <div class="video-frame" id="videoFrame">
-            <div class="video-placeholder"><span class="vp-ico">🎬</span>Elige una lección de vista previa para empezar.</div>
+            <div class="video-placeholder"><span class="vp-ico">🎬</span>Compra el curso para ver las lecciones en video.</div>
           </div>
-          <div class="player-note" id="playerNote">Las lecciones de vista previa están disponibles para todos. El acceso completo requiere inscripción.</div>
+          <div class="player-note" id="playerNote">El contenido en video y el foro se habilitan al comprar el curso.</div>
         </section>
 
         <section class="panel">
@@ -190,7 +192,7 @@
     try {
       const l = await api('/api/lecciones/' + id);
       $('#playerState').textContent = l.curso.titulo;
-      $('#playerNote').textContent = l.es_preview ? 'Lección de vista previa gratuita.' : 'Acceso completo al curso.';
+      $('#playerNote').textContent = 'Acceso completo al curso.';
       if (l.tipo_video === 'youtube' && l.youtube_video_id) {
         frame.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(l.youtube_video_id)}?rel=0" title="${esc(titulo)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
       } else if (l.tipo_video === 'archivo' && l.video_url) {
@@ -431,7 +433,7 @@
         <p class="fine" style="text-align:center">Puedes seguir el estado en <a href="/perfil.html#mis-compras">Mis compras</a>. Si tienes dudas, escribe al instructor indicando esta referencia.</p>
         <button class="btn btn-primary btn-block" id="irCurso" type="button">Entendido</button>
       </div>`;
-    $('#irCurso').onclick = () => closeModal();
+    $('#irCurso').onclick = () => { closeModal(); location.reload(); };
   }
 
   function mostrarComprobante(compra) {
@@ -454,7 +456,7 @@
         <p class="fine" style="text-align:center">Pago simulado. No se realizó ningún cargo real.</p>
         <button class="btn btn-primary btn-block" id="irCurso" type="button">Ir a mi curso</button>
       </div>`;
-    $('#irCurso').onclick = () => closeModal();
+    $('#irCurso').onclick = () => { closeModal(); location.reload(); };
   }
 
   async function abrirCompra() {

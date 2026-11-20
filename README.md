@@ -5,6 +5,7 @@ Plataforma de **cursos de desarrollo de software**. El catálogo es público; la
 La Fase 3 añade:
 
 - **Validación del pago por QR**: al pagar por QR la compra queda *pendiente* y el estudiante **no** recibe acceso. El instructor la ve en su panel (sección «Pagos por QR por validar»), comprueba en su banco que el dinero llegó y pulsa **Confirmar pago** (se crea la inscripción y se avisa al estudiante) o **Rechazar** con un motivo opcional (la compra se cancela y el estudiante puede reintentar). El instructor ve referencia, monto, fecha y el Nº de operación opcional que escribió el estudiante, pero nunca sus datos personales.
+- **Videos protegidos**: ningún cliente puede reproducir lecciones de YouTube o archivos locales sin estar inscrito en el curso, ni siquiera las que antes se marcaban como «vista previa». Los cursos gratuitos también requieren inscripción.
 - **Pago por QR**: el instructor sube su propio código QR desde el panel y el estudiante lo ve al elegir ese método en el checkout.
 - **Datos de cobro del instructor** para transferencia bancaria y QR, con validación de configuración antes de permitir la compra.
 - **Checkout más realista**: formulario de tarjeta con vista previa y validación local, datos bancarios copiables, pasos para escanear el QR, estado de procesamiento y comprobante.
@@ -202,15 +203,15 @@ uploads/                   Videos y códigos QR subidos (ignorado por git)
 
 1. Un cliente autenticado abre un curso publicado y pulsa **Comprar ahora**.
 2. Elige uno de los métodos de pago activos y completa el detalle correspondiente. Los cursos gratuitos se inscriben sin método.
-3. El servidor calcula el total en **Bs**, valida que el instructor tenga configurado el QR o la cuenta bancaria cuando el método lo requiere, y crea `compras`, `compra_items`, `pagos` e `inscripciones` con acceso inmediato.
-4. El instructor recibe una notificación de venta y el cliente una de compra confirmada.
-5. La operación es idempotente por curso: volver a comprar un curso ya inscrito devuelve `409`.
+3. El servidor calcula el total en **Bs**, valida que el instructor tenga configurado el QR o la cuenta bancaria cuando el método lo requiere y crea `compras`, `compra_items` y `pagos`. Con tarjeta, transferencia o PayPal también crea las `inscripciones` con acceso inmediato; con QR la compra y el pago quedan `pendiente` hasta que el instructor confirme la recepción del dinero.
+4. El instructor recibe una notificación de venta (o de pago QR por validar) y el cliente una de compra confirmada (o de pago en revisión).
+5. La operación es idempotente por curso: volver a comprar un curso ya inscrito devuelve `409`, y no se puede duplicar una compra que espera validación.
 
 Detalles por método:
 
 - **Tarjeta**: formulario con vista previa, formateo y validación Luhn en el navegador. Acepta vencimientos `MM/AA` o `MM/AAAA`, muestra errores junto a cada campo e incluye un botón para rellenar una tarjeta de demostración. Los datos de la tarjeta nunca se envían al servidor; solo se guarda una etiqueta como `Visa •••• 4242`. Las tarjetas `4242…`, `5555…`, `3782…` y `3056…` se aprueban en la simulación; `4000 0000 0000 0002` se rechaza.
 - **Transferencia**: se muestran banco, titular, cuenta, tipo de cuenta, monto e instrucciones del instructor, con botón para copiar los datos. Si el instructor no configuró su cuenta, la compra devuelve `409`.
-- **Pago por QR**: se muestra la imagen subida por el instructor, el monto y los pasos para escanear. Si no hay QR configurado, la compra devuelve `409`.
+- **Pago por QR**: se muestra la imagen subida por el instructor, el monto, los pasos para escanear y un campo opcional para el Nº de operación. Si no hay QR configurado, la compra devuelve `409`. La compra queda pendiente hasta que el instructor confirme que recibió el dinero.
 - **PayPal**: se simula la apertura de la pasarela y se confirma la compra sin cargos reales.
 
 Al finalizar se muestra un comprobante con referencia, método y total. Todo el flujo está etiquetado como demostración.
@@ -218,7 +219,8 @@ Al finalizar se muestra un comprobante con referencia, método y total. Todo el 
 ## Videos
 
 - **YouTube**: se acepta una URL (`watch`, `youtu.be`, `embed`, `shorts`, `live`) o un ID de 11 caracteres. Se incrusta con `youtube-nocookie.com`.
-- **Archivo local**: se sube en MP4 o WebM (máximo 200 MB). Se guarda fuera de `public/` y solo se sirve mediante `/api/lecciones/:id/video` tras comprobar el acceso. El dueño del curso y la administración siempre pueden verlo; los clientes necesitan inscripción o que el curso sea gratuito.
+- **Archivo local**: se sube en MP4 o WebM (máximo 200 MB). Se guarda fuera de `public/` y solo se sirve mediante `/api/lecciones/:id/video` tras comprobar el acceso.
+- **Acceso**: tanto YouTube como los archivos locales exigen inscripción en el curso. El dueño del curso y la administración siempre pueden verlo; los clientes necesitan compra o inscripción, incluso en cursos gratuitos. Ya no existen lecciones de vista previa públicas.
 
 ## Revisión de cursos
 
@@ -238,11 +240,11 @@ Las pruebas usan `DB_PATH=:memory:`, `SEED_DEMO=false` y `SECRET=test-secret`. C
 
 ## Base de datos
 
-`npm run db:reset` elimina y recrea `devstore.db` con el catálogo demo. Al arrancar, si la base no existe se crea y se siembra automáticamente. Las bases de fases anteriores se migran en caliente añadiendo las columnas nuevas y actualizando `user_version` a `3`. También se detecta el esquema antiguo (productos/pedidos) y se recrea la base actual.
+`npm run db:reset` elimina y recrea `devstore.db` con el catálogo demo. Al arrancar, si la base no existe se crea y se siembra automáticamente. Las bases de fases anteriores se migran en caliente añadiendo las columnas nuevas y actualizando `user_version` a `4`. También se detecta el esquema antiguo (productos/pedidos) y se recrea la base actual.
 
 Tablas: `usuarios`, `perfiles_cliente`, `perfiles_instructor`, `categorias`, `cursos`, `curso_secciones`, `curso_lecciones`, `metodos_pago`, `compras`, `compra_items`, `inscripciones`, `pagos`, `notificaciones`, `foro_hilos`, `foro_respuestas`, `conversaciones` y `mensajes`.
 
-Columnas de la Fase 3: `perfiles_instructor.pago_banco`, `pago_titular`, `pago_cuenta`, `pago_tipo_cuenta`, `pago_instrucciones`, `pago_qr_path`, `pago_qr_nombre`, `pago_actualizado` y `pagos.detalle`.
+Columnas de la Fase 3: `perfiles_instructor.pago_banco`, `pago_titular`, `pago_cuenta`, `pago_tipo_cuenta`, `pago_instrucciones`, `pago_qr_path`, `pago_qr_nombre`, `pago_actualizado` y `pagos.detalle`. La validación manual del QR añade `pagos.verificado_por`, `pagos.verificado_en` y `pagos.motivo_rechazo`.
 
 Gestión puntual de usuarios por consola:
 

@@ -19,7 +19,7 @@ router.get('/health', asyncHandler(async (req, res) => {
     writable,
     users,
     cursos,
-    version: 3,
+    version: db.pragma('user_version', { simple: true }),
     node: process.version
   });
 }));

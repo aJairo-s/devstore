@@ -459,11 +459,9 @@ main { min-height: calc(100vh - 68px); }
   width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; display: grid; place-items: center;
   background: var(--surface-3); color: var(--muted); font-size: .62rem;
 }
-.lesson-row.preview .l-ico { background: var(--accent-soft); color: var(--accent); }
 .lesson-row.locked { opacity: .62; cursor: not-allowed; }
 .lesson-row.locked:hover { background: transparent; }
 .lesson-row .l-dur { margin-left: auto; font-size: .72rem; color: var(--muted); }
-.lesson-row .l-tag { font-size: .62rem; color: var(--accent); border: 1px solid var(--accent-border); border-radius: 4px; padding: .05rem .3rem; }
 .player-card { padding: 0; overflow: hidden; }
 .player-head { padding: .9rem 1.1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: .8rem; align-items: center; }
 .player-head b { font-size: .9rem; }
@@ -777,6 +775,7 @@ input[aria-invalid="true"]:focus { border-color: #f87171; box-shadow: 0 0 0 3px 
 .fine { color: var(--muted); font-size: .76rem; line-height: 1.45; }
 
 .analytics { scroll-margin-top: 90px; }
+.dash-main section[id] { scroll-margin-top: 90px; }
 .analytics-chart { margin-top: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-2); }
 .chart-bars { display: grid; grid-template-columns: repeat(6, 1fr); gap: .6rem; align-items: end; height: 180px; margin-top: 1rem; padding: 0 .2rem; }
 .chart-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: .25rem; min-width: 0; }

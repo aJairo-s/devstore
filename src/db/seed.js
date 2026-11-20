@@ -422,7 +422,7 @@ function crearCurso(db, data, instructorId, categoriaId) {
       lecInsert.run(Number(s.lastInsertRowid), leccion,
         `Lección ${li + 1} de la sección ${titulo}.`,
         'youtube', YT[data.video] || YT.logica, 480 + ((si * 3 + li) * 137) % 1200,
-        si === 0 && li === 0 ? 1 : 0, li);
+        0, li);
     });
   });
   return cursoId;
@@ -619,7 +619,7 @@ function seedDemo(db, adminId) {
   if (borrador) {
     const sec = db.prepare('INSERT INTO curso_secciones(curso_id,titulo,orden) VALUES(?,?,0)').run(borrador, 'Introducción');
     db.prepare(`INSERT INTO curso_lecciones(seccion_id,titulo,descripcion,tipo_video,youtube_video_id,duracion_seg,es_preview,orden)
-      VALUES(?,?,?,?,?,?,1,0)`)
+      VALUES(?,?,?,?,?,?,0,0)`)
       .run(Number(sec.lastInsertRowid), 'Bienvenida al curso', 'Qué vamos a construir y cómo aprovechar el curso.', 'youtube', YT.node, 420);
   }
 }

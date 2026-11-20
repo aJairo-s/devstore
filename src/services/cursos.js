@@ -99,7 +99,7 @@ function tieneAcceso(usuario, cursoId) {
   if (!curso) return false;
   if (usuario.rol === 'administrador') return true;
   if (usuario.rol === 'instructor' && curso.instructor_id === usuario.id) return true;
-  if (Number(curso.precio) === 0) return true;
+  // Todo cliente debe inscribirse, incluso en cursos gratuitos, antes de ver el contenido.
   return !!db.prepare('SELECT 1 FROM inscripciones WHERE cliente_id=? AND curso_id=?')
     .get(usuario.id, curso.id);
 }
@@ -129,15 +129,31 @@ function curriculo(cursoId) {
   }));
 }
 
+function compraPendienteDeCurso(clienteId, cursoId) {
+  if (!clienteId) return null;
+  return db.prepare(`
+    SELECT co.id, co.referencia, co.total, co.creado,
+           m.slug AS metodo_pago_slug, m.nombre AS metodo_pago
+    FROM compras co
+    JOIN compra_items ci ON ci.compra_id=co.id
+    LEFT JOIN metodos_pago m ON m.id=co.metodo_pago_id
+    WHERE co.cliente_id=? AND ci.curso_id=? AND co.estado='pendiente'
+    ORDER BY co.id DESC LIMIT 1`).get(clienteId, Number(cursoId)) || null;
+}
+
 function detalleCurso(slug, usuario) {
   const row = cursoPorSlug(slug);
   if (!row) return null;
   const acceso = tieneAcceso(usuario, row.id);
+  const pendiente = usuario && usuario.rol === 'cliente'
+    ? compraPendienteDeCurso(usuario.id, row.id)
+    : null;
   return {
     ...publico(row),
     id: row.id,
     instructor_id: row.instructor_id,
     acceso_completo: acceso,
+    pago_pendiente: pendiente,
     secciones: curriculo(row.id)
   };
 }
@@ -159,10 +175,10 @@ function estaInscrito(usuario, cursoId) {
 
 function puedeVerLeccion(usuario, leccion) {
   if (!leccion) return false;
-  if (leccion.es_preview) return true;
   if (!usuario) return false;
   if (usuario.rol === 'administrador') return true;
   if (usuario.rol === 'instructor' && usuario.id === leccion.instructor_id) return true;
+  // Ningún video es visible sin inscripción, ni siquiera si está marcado como vista previa.
   if (leccion.curso_estado === 'aprobado') return tieneAcceso(usuario, leccion.curso_id);
   // Quien ya compró el curso conserva el acceso aunque el instructor lo reenvíe a revisión.
   return estaInscrito(usuario, leccion.curso_id);

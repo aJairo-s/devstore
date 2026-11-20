@@ -170,15 +170,13 @@ test('cursos, temario y flujo de aprobación', async t => {
     assert.equal(detalle.data.acceso_completo, false);
     assert.equal(detalle.data.secciones.length, 1);
 
-    // Vista previa accesible sin sesión; lección privada no.
-    const lp = await anon.get('/api/lecciones/' + preview);
-    assert.equal(lp.status, 200);
-    assert.equal(lp.data.es_preview, true);
-    assert.equal(lp.data.youtube_video_id, 'dQw4w9WgXcQ');
+    // Ningún video se sirve sin compra, ni siquiera las lecciones marcadas como vista previa.
+    assert.equal((await anon.get('/api/lecciones/' + preview)).status, 403);
     assert.equal((await anon.get('/api/lecciones/' + privada)).status, 403);
 
-    // Un cliente sin inscripción tampoco accede a la lección privada.
+    // Un cliente sin inscripción tampoco accede a ningún video.
     const cliente = await registrarCliente(base, 'sincompra@test.com');
+    assert.equal((await cliente.get('/api/lecciones/' + preview)).status, 403);
     assert.equal((await cliente.get('/api/lecciones/' + privada)).status, 403);
     assert.equal((await cliente.get('/api/mis-cursos')).data.length, 0);
 
@@ -230,7 +228,7 @@ test('cursos, temario y flujo de aprobación', async t => {
     assert.equal((await otro.get('/api/lecciones/' + leccion)).status, 403);
   });
 
-  await t.test('un curso gratuito permite acceso a usuarios autenticados', async () => {
+  await t.test('un curso gratuito exige inscripción antes de ver las lecciones', async () => {
     const { inst } = await instructorVerificado(base, 'profe7@test.com');
     const cursoId = await crearCurso(inst, catId, { titulo: 'Curso gratuito de muestra', precio: 0 });
     const sec = await inst.post(`/api/instructor/cursos/${cursoId}/secciones`, { titulo: 'Gratis' });
@@ -240,8 +238,11 @@ test('cursos, temario y flujo de aprobación', async t => {
     await a.post(`/api/admin/cursos/${cursoId}/aprobar`);
 
     const cliente = await registrarCliente(base, 'gratis@test.com');
-    const r = await cliente.get('/api/lecciones/' + leccion);
-    assert.equal(r.status, 200);
+    // Aunque el curso sea gratuito, primero hay que inscribirse.
+    assert.equal((await cliente.get('/api/lecciones/' + leccion)).status, 403);
+    const inscripcion = await cliente.post('/api/compras', { curso_ids: [cursoId] });
+    assert.equal(inscripcion.status, 201, JSON.stringify(inscripcion.data));
+    assert.equal((await cliente.get('/api/lecciones/' + leccion)).status, 200);
   });
 
   await t.test('subida de video local protegida', async () => {

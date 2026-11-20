@@ -114,7 +114,7 @@
   function panelPagosQr() {
     const filas = pagosQr.length ? pagosQr.map(p => `<article class="course-row" data-pago="${p.compra_id}">
         <div class="cr-main">
-          <div class="row"><b>${esc(p.items.map(i => i.titulo).join(', '))}</b>${statusBadge('pendiente')}</div>
+          <div class="row"><b>${esc(p.items.map(i => i.titulo).join(', '))}</b><span class="badge badge-warn">Pago pendiente</span></div>
           <small>Referencia <b>${esc(p.referencia || p.pago_referencia || '—')}</b> · ${esc(DS.formatDate(p.creado))}${p.pago_detalle ? ' · ' + esc(p.pago_detalle) : ''}</small>
         </div>
         <div><span class="price">${money(p.total)}</span></div>
